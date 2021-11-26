@@ -59,7 +59,7 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: 192.168.1.34
+                address: {{IP}}
                 port_value: 15777
   - name: beacon_udp
     connect_timeout: 5s
@@ -71,7 +71,7 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: 192.168.1.34
+                address: {{IP}}
                 port_value: 15000
   - name: game_udp
     connect_timeout: 5s
@@ -83,7 +83,7 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: 192.168.1.34
+                address: {{IP}}
                 port_value: 7777
 
 admin:
