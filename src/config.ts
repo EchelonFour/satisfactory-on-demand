@@ -37,6 +37,18 @@ export const config = convict({
     format: 'int',
     default: 10,
     env: 'STATS_READ_INTERVAL'
+  },
+  nameOfSatisfactoryServer: {
+    doc: 'Name to give the satisfactory server when it boots',
+    format: '*',
+    default: 'satisfactory',
+    env: 'CLOUD_SERVER_NAME'
+  },
+  nameOfSatisfactorySnapshot: {
+    doc: 'Name to give the satisfactory snapshot',
+    format: '*',
+    default: 'satisfactory',
+    env: 'CLOUD_SNAPSHOT_NAME'
   }
 })
 const env = config.get('env')
