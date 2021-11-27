@@ -1,29 +1,34 @@
-import globalLogger from "./logger.js"
+import globalLogger from './logger.js'
 
 const logger = globalLogger.child({ module: 'sessions' })
 
 export interface ServerDetails {
-  state: 'missing' | 'stopped' | 'running',
-  ipAddress: string,
+  state: 'missing' | 'stopped' | 'running'
+  ipAddress: string
 }
 
 export interface SnapshotDetails {
-  state: 'missing' | 'pending' | 'complete',
+  state: 'missing' | 'pending' | 'complete'
 }
 
-export abstract class ServerManager<TServerDetails extends ServerDetails = ServerDetails, TSnapshotDetails extends SnapshotDetails = SnapshotDetails> {
+export abstract class ServerManager<
+  TServerDetails extends ServerDetails = ServerDetails,
+  TSnapshotDetails extends SnapshotDetails = SnapshotDetails,
+> {
   protected currentState: 'uninitialised' | 'running' | 'snapshotting' | 'stopped' = 'uninitialised'
+
   protected currentServerDetails!: TServerDetails
+
   protected currentSnapshotDetails!: TSnapshotDetails
 
-  constructor(protected nameOfServer: string, protected nameOfSnapshot: string) {
+  constructor(protected nameOfServer: string, protected nameOfSnapshot: string) {}
 
-  }
   private errorIfUninitialised(): void {
     if (this.currentState === 'uninitialised') {
-      throw new Error('tried to manage cloud server state, but the manager hasn\'t been initialised')
+      throw new Error("tried to manage cloud server state, but the manager hasn't been initialised")
     }
   }
+
   public async start(): Promise<string> {
     this.errorIfUninitialised()
     logger.info('starting server')
@@ -41,6 +46,7 @@ export abstract class ServerManager<TServerDetails extends ServerDetails = Serve
     this.currentServerDetails = await this.terminateServer(this.currentServerDetails)
     this.currentState = 'stopped'
   }
+
   protected async rotateSnapshots() {
     const oldSnapshot = this.currentSnapshotDetails
     this.currentSnapshotDetails = await this.snapshotServer(this.currentServerDetails)

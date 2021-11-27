@@ -18,38 +18,38 @@ export const config = convict({
     doc: 'Location of the template that we will use for envoy',
     format: '*',
     default: './envoy.yaml',
-    env: 'ENVOY_TEMPLATE'
+    env: 'ENVOY_TEMPLATE',
   },
   envoyAdminPort: {
     doc: 'Port hosting envoy admin console',
     format: 'port',
     default: 19000,
-    env: 'ENVOY_ADMIN_PORT'
+    env: 'ENVOY_ADMIN_PORT',
   },
   statsReadInterval: {
     doc: 'How many milliseconds we wait between checking active sessions',
     format: 'int',
     default: 1000,
-    env: 'STATS_READ_INTERVAL'
+    env: 'STATS_READ_INTERVAL',
   },
   shutdownDelay: {
     doc: 'How many seconds to wait before actually shutting server down when it hits 0',
     format: 'int',
     default: 10,
-    env: 'STATS_READ_INTERVAL'
+    env: 'STATS_READ_INTERVAL',
   },
   nameOfSatisfactoryServer: {
     doc: 'Name to give the satisfactory server when it boots',
     format: '*',
     default: 'satisfactory',
-    env: 'CLOUD_SERVER_NAME'
+    env: 'CLOUD_SERVER_NAME',
   },
   nameOfSatisfactorySnapshot: {
     doc: 'Name to give the satisfactory snapshot',
     format: '*',
     default: 'satisfactory',
-    env: 'CLOUD_SNAPSHOT_NAME'
-  }
+    env: 'CLOUD_SNAPSHOT_NAME',
+  },
 })
 const env = config.get('env')
 const filesToLoad = [`./config/${env}.json`, `./config/local.json`]
