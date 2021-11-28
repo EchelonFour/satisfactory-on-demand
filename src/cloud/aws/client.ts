@@ -1,8 +1,8 @@
-import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager'
-import globalLogger from '../../logger'
+import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager.js'
+import globalLogger from '../../logger.js'
 import { EC2, EC2ClientConfig, Instance } from '@aws-sdk/client-ec2';
-import { wait } from '../../util';
-import { AwsCloudManagerConfig } from './config';
+import { wait } from '../../util.js';
+import { AwsCloudManagerConfig } from './config.js';
 
 const logger = globalLogger.child({ module: 'aws' })
 
@@ -17,7 +17,7 @@ export class AwsManager extends CloudManager<AwsServerDetails, AwsSnapshotDetail
   private client: EC2
   constructor(nameOfServer: string, nameOfSnapshot: string, config: AwsCloudManagerConfig) {
     super(nameOfServer, nameOfSnapshot)
-    const ec2Config: EC2ClientConfig = {}
+    const ec2Config: EC2ClientConfig = { logger }
     if (config.region) {
       ec2Config.region = config.region
     }
@@ -36,6 +36,10 @@ export class AwsManager extends CloudManager<AwsServerDetails, AwsSnapshotDetail
         {
           Name: 'tag:Name',
           Values: [instanceName || snapshotName]
+        },
+        {
+          Name: 'instance-state-name',
+          Values: ['pending', 'running', 'shutting-down', 'stopping', 'stopped'] // not terminated
         }
       ]
     })
@@ -46,35 +50,37 @@ export class AwsManager extends CloudManager<AwsServerDetails, AwsSnapshotDetail
       throw new Error('too many servers found in ec2. Unable to determine correct one to manage')
     }
     const managedInstance = allInstances[0]
-    if (managedInstance.State?.Name === 'running') {
+    logger.info(`managing the instance with id: ${managedInstance.InstanceId}`)
+    if (managedInstance.State?.Name === 'running' || managedInstance.State?.Name === 'pending') {
       return [{ state: 'running', instanceId: managedInstance.InstanceId!, ipAddress: managedInstance.PublicIpAddress!}, {state: 'missing', instanceId: null}]
     }
     return [{ state: 'missing', instanceId: null, ipAddress: null}, {state: 'complete', instanceId: managedInstance.InstanceId!}]
   }
   public async startServerFromSnapshot(snapshot: AwsSnapshotDetails): Promise<AwsServerDetails> {
+    logger.info('starting aws instance')
     const response = await this.client.startInstances({
       InstanceIds: [snapshot.instanceId!]
     })
-    let currentState = response.StartingInstances?.[0].CurrentState?.Name
+    let knownIp: string | null = null
     let mostRecentDescribe: Instance
-    while (currentState === 'pending') {
+    while (knownIp === null) {
+      //TODO add a timeout
       await wait(1500)
       const describeResponse = await this.client.describeInstances({
         InstanceIds: [snapshot.instanceId!]
       })
       mostRecentDescribe = describeResponse.Reservations?.[0].Instances?.[0]!
-      currentState = mostRecentDescribe?.State?.Name
+      logger.info({ip: mostRecentDescribe.PublicIpAddress, state: mostRecentDescribe.State?.Name}, 'status of started machine')
+      knownIp = mostRecentDescribe?.PublicIpAddress || null
     }
-    if (currentState !== 'running') {
-      throw new Error('failed to boot ec2 instance')
-    }
-    return { state: 'running', ipAddress: mostRecentDescribe!.PublicIpAddress!, instanceId: snapshot.instanceId }
+    return { state: 'running', ipAddress: knownIp, instanceId: snapshot.instanceId }
   }
   public async snapshotServer(server: AwsServerDetails): Promise<AwsSnapshotDetails> {
     // this system doesn't snapshot, it just stops and starts. so we just save a marker of the stopped instance for the ID
     return { state: 'complete', instanceId: server.instanceId }
   }
   public async terminateServer(server: AwsServerDetails): Promise<AwsServerDetails> {
+    logger.info('stopping aws instance')
     // terminate here means stop
     await this.client.stopInstances({
       InstanceIds: [server.instanceId!]

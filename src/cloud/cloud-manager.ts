@@ -60,6 +60,7 @@ export abstract class CloudManager<
     //@ts-ignore -- ts thinks it knows, but other threads might change this variable
     if (this.currentState !== 'running') {
       // if we are here, the snapshot did not get cancelled
+      logger.info('terminating')
       this.currentServerDetails = await this.terminateServer(this.currentServerDetails)
       this.currentState = 'stopped'
     }
@@ -68,18 +69,21 @@ export abstract class CloudManager<
 
   protected async rotateSnapshots() {
     const oldSnapshot = this.currentSnapshotDetails
+    logger.info('snapshot starting')
     let newSnapshot = await this.snapshotServer(this.currentServerDetails)
     const waitDurationMs = 20000
     const totalWaitCycles = 1000 * 60 * 30 / waitDurationMs // 1000ms * 1 minute * 30 minutes
     let currentWaitCycles = 0
     while(newSnapshot.state === 'pending' && currentWaitCycles < totalWaitCycles) {
       currentWaitCycles++
+      logger.debug({waitCycle: currentWaitCycles}, 'waiting for snapshot to complete')
       await wait(waitDurationMs)
       newSnapshot = await this.updateSnapshotStatus(newSnapshot)
     }
+    logger.info(`snapshot took about ${currentWaitCycles * 20} seconds`)
     this.currentSnapshotDetails = newSnapshot
     if (oldSnapshot.state === 'pending' || oldSnapshot.state === 'complete') {
-      logger.info('we have a new snapshot, deleting old one')
+      logger.info({oldSnapshot}, 'we have a new snapshot, deleting old one')
       await this.deleteSnapshot(oldSnapshot)
     }
   }
@@ -107,6 +111,7 @@ export abstract class CloudManager<
       this.currentServerDetails = await this.terminateServer(this.currentServerDetails)
       this.currentState = 'stopped'
     }
+    logger.info(`figured the current server state is ${this.currentState}`)
 
     // no idea how we could trip this, but just keeping myself sane
     this.errorIfUninitialised()

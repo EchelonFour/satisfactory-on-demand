@@ -1,7 +1,7 @@
 import convict from 'convict'
 import { existsSync } from 'fs'
-import { awsConfigOptions } from './cloud/aws/config'
-import { vultrConfigOptions } from './cloud/vultr/config'
+import { awsConfigOptions } from './cloud/aws/config.js'
+import { vultrConfigOptions } from './cloud/vultr/config.js'
 
 export function configSubSchema<T>(config: convict.Schema<T>): convict.Schema<T> {
  return config
@@ -41,7 +41,7 @@ export const config = convict({
   shutdownDelay: {
     doc: 'How many seconds to wait before actually shutting server down when it hits 0',
     format: 'int',
-    default: 10,
+    default: 180,
     env: 'STATS_READ_INTERVAL',
   },
   nameOfSatisfactoryServer: {

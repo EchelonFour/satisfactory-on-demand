@@ -1,7 +1,7 @@
-import config from "../config";
-import { AwsManager } from "./aws/client";
-import { CloudManager } from "./cloud-manager";
-import { VultrManager } from "./vultr/client";
+import config from "../config.js";
+import { AwsManager } from "./aws/client.js";
+import { CloudManager } from "./cloud-manager.js";
+import { VultrManager } from "./vultr/client.js";
 
 export function cloudManagerFromConfig(): CloudManager {
   const cloudManager = config.get('cloudManager')

@@ -1,7 +1,7 @@
-import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager'
+import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager.js'
 import axios, { AxiosInstance } from 'axios'
-import globalLogger from '../../logger'
-import { VultrCloudManagerConfig } from './config'
+import globalLogger from '../../logger.js'
+import { VultrCloudManagerConfig } from './config.js'
 
 const logger = globalLogger.child({ module: 'vultr' })
 

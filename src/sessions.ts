@@ -1,5 +1,4 @@
 import { distinctUntilChanged, interval, map, Observable, share, switchMap, tap } from 'rxjs'
-import { ajax } from 'rxjs/ajax'
 import axios from 'axios'
 import globalLogger from './logger.js'
 import config from './config.js'
@@ -22,7 +21,7 @@ export function currentSessionCount$(
     ),
     map((response) => response.data.stats[0].value),
     distinctUntilChanged(),
-    tap((sessions) => logger.trace({ sessions }, 'current session count')),
+    tap((sessions) => logger.debug({ sessions }, 'current session count')),
     share(),
   )
 }
