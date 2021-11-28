@@ -1,9 +1,10 @@
 import globalLogger from './logger.js'
+import { wait } from './util.js'
 
 const logger = globalLogger.child({ module: 'sessions' })
 
 export interface ServerDetails {
-  state: 'missing' | 'stopped' | 'running'
+  state: 'missing' | 'running'
   ipAddress: string | null
 }
 
@@ -32,7 +33,14 @@ export abstract class ServerManager<
   public async start(): Promise<string> {
     this.errorIfUninitialised()
     logger.info('starting server')
-    this.currentServerDetails = await this.startServerFromSnapshot(this.currentSnapshotDetails)
+    if (this.currentState === 'running') {
+      logger.warn('server tried to start, but it was already fine. ignoring')
+      return this.currentServerDetails.ipAddress!
+    }
+    if (this.currentState === 'stopped') {
+      // if the server is still snapshotting, dont start a new one
+      this.currentServerDetails = await this.startServerFromSnapshot(this.currentSnapshotDetails)
+    }
     this.currentState = 'running'
     if (this.currentServerDetails.ipAddress == null) {
       throw new Error('running server has no ip address')
@@ -42,18 +50,34 @@ export abstract class ServerManager<
 
   public async shutdown() {
     this.errorIfUninitialised()
-    logger.info('shutting down')
-    this.currentServerDetails = await this.stopServer(this.currentServerDetails)
+    if (this.currentState === 'stopped') {
+      logger.warn('tried to double shutdown. just aborting')
+      return
+    } 
+    this.currentState = 'snapshotting'
     logger.info('snapshotting')
     await this.rotateSnapshots()
-    this.currentServerDetails = await this.terminateServer(this.currentServerDetails)
-    this.currentState = 'stopped'
+    //@ts-ignore -- ts thinks it knows, but other threads might change this variable
+    if (this.currentState !== 'running') {
+      // if we are here, the snapshot did not get cancelled
+      this.currentServerDetails = await this.terminateServer(this.currentServerDetails)
+      this.currentState = 'stopped'
+    }
+
   }
 
   protected async rotateSnapshots() {
     const oldSnapshot = this.currentSnapshotDetails
-    this.currentSnapshotDetails = await this.snapshotServer(this.currentServerDetails)
-    this.currentSnapshotDetails = await this.waitForSnapshotToComplete(this.currentSnapshotDetails)
+    let newSnapshot = await this.snapshotServer(this.currentServerDetails)
+    const waitDurationMs = 20000
+    const totalWaitCycles = 1000 * 60 * 30 / waitDurationMs // 1000ms * 1 minute * 30 minutes
+    let currentWaitCycles = 0
+    while(newSnapshot.state === 'pending' && currentWaitCycles < totalWaitCycles) {
+      currentWaitCycles++
+      await wait(waitDurationMs)
+      newSnapshot = await this.updateSnapshotStatus(newSnapshot)
+    }
+    this.currentSnapshotDetails = newSnapshot
     if (oldSnapshot.state === 'pending' || oldSnapshot.state === 'complete') {
       logger.info('we have a new snapshot, deleting old one')
       await this.deleteSnapshot(oldSnapshot)
@@ -61,9 +85,8 @@ export abstract class ServerManager<
   }
 
   public async loadCurrentState() {
-    logger.info('loading state from api')
-    this.currentServerDetails = await this.getServerStatus(this.nameOfServer)
-    this.currentSnapshotDetails = await this.getSnapshotStatus(this.nameOfSnapshot)
+    logger.info('loading state from api');
+    [this.currentServerDetails, this.currentSnapshotDetails] = await this.getColdStatus(this.nameOfServer, this.nameOfSnapshot)
     if (this.currentServerDetails.state === 'running') {
       if (this.currentSnapshotDetails.state === 'complete' || this.currentSnapshotDetails.state === 'pending') {
         logger.warn('there was a snapshot even though the server is running, deleting')
@@ -74,8 +97,7 @@ export abstract class ServerManager<
       if (this.currentSnapshotDetails.state === 'missing') {
         throw new Error('can not find a server or snapshot, so nothing to boot for the user')
       } else if (this.currentSnapshotDetails.state === 'pending') {
-        logger.warn('snapshot still pending when loading, going to wait for it to complete')
-        this.currentSnapshotDetails = await this.waitForSnapshotToComplete(this.currentSnapshotDetails)
+        throw new Error('snapshot still pending when loading, there should not be a single pending snapshot with no server')
       }
       this.currentState = 'stopped'
     } else if (this.currentServerDetails.state === 'stopped') {
@@ -89,10 +111,8 @@ export abstract class ServerManager<
     // no idea how we could trip this, but just keeping myself sane
     this.errorIfUninitialised()
   }
-  public abstract getServerStatus(name: string): Promise<TServerDetails>
-  public abstract getSnapshotStatus(name: string): Promise<TSnapshotDetails>
+  public abstract getColdStatus(instanceName: string, snapshotName: string): Promise<[TServerDetails, TSnapshotDetails]>
   public abstract startServerFromSnapshot(snapshot: TSnapshotDetails): Promise<TServerDetails>
-  public abstract stopServer(server: TServerDetails): Promise<TServerDetails>
   public abstract snapshotServer(server: TServerDetails): Promise<TSnapshotDetails>
   public abstract terminateServer(server: TServerDetails): Promise<TServerDetails>
   public abstract updateSnapshotStatus(snapshot: TSnapshotDetails): Promise<TSnapshotDetails>

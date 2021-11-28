@@ -47,6 +47,9 @@ export class VultrManager extends ServerManager<VultrServerDetails, VultrSnapsho
       },
     })
   }
+  public async getColdStatus(instanceName: string, snapshotName: string): Promise<[VultrServerDetails, VultrSnapshotDetails]> {
+    return Promise.all([this.getServerStatus(instanceName), this.getSnapshotStatus(snapshotName)])
+  }
   public async getServerStatus(name: string): Promise<VultrServerDetails> {
     const response = await this.axios.get<VultrInstancesResponse>('instances')
     const validInstances = response.data.instances.filter((instance) => instance.label === name)
@@ -55,8 +58,10 @@ export class VultrManager extends ServerManager<VultrServerDetails, VultrSnapsho
     } else if (validInstances.length > 1) {
       throw new Error('multiple instances found, impossible to tell which one to use')
     }
-    const state = validInstances[0].power_status === 'running' ? 'running' : 'stopped'
-    return { state, instanceId: validInstances[0].id, ipAddress: validInstances[0].main_ip }
+    if (validInstances[0].power_status !== 'running') {
+      throw new Error('found a server, but it isn\'t running')
+    }
+    return { state: 'running', instanceId: validInstances[0].id, ipAddress: validInstances[0].main_ip }
   }
 
   public async getSnapshotStatus(name: string): Promise<VultrSnapshotDetails> {
@@ -80,10 +85,10 @@ export class VultrManager extends ServerManager<VultrServerDetails, VultrSnapsho
     return { state: 'running', ipAddress: response.data.instance.main_ip, instanceId: response.data.instance.id }
   }
 
-  public async stopServer(server: VultrServerDetails): Promise<VultrServerDetails> {
-    await this.axios.post('instances/halt', { instance_ids: [server.instanceId] })
-    return { state: 'stopped', instanceId: server.instanceId, ipAddress: server.ipAddress }
-  }
+  // public async stopServer(server: VultrServerDetails): Promise<VultrServerDetails> {
+  //   await this.axios.post('instances/halt', { instance_ids: [server.instanceId] })
+  //   return { state: 'stopped', instanceId: server.instanceId, ipAddress: server.ipAddress }
+  // }
 
   public async snapshotServer(server: VultrServerDetails): Promise<VultrSnapshotDetails> {
     const response = await this.axios.post<VultrSnapshotResponse>('snapshots', {

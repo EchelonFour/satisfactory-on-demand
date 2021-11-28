@@ -23,6 +23,7 @@
     "typescript": "^4.5.2"
   },
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3.42.0",
     "axios": "^0.24.0",
     "convict": "^6.2.1",
     "execa": "^6.0.0",
