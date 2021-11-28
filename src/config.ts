@@ -1,6 +1,7 @@
 import convict from 'convict'
 import { existsSync } from 'fs'
 import { awsConfigOptions } from './cloud/aws/config'
+import { vultrConfigOptions } from './cloud/vultr/config'
 
 export function configSubSchema<T>(config: convict.Schema<T>): convict.Schema<T> {
  return config
@@ -62,6 +63,7 @@ export const config = convict({
     env: 'CLOUD_MANAGER',
   },
   awsConfig: awsConfigOptions,
+  vultrConfig: vultrConfigOptions,
 })
 const env = config.get('env')
 const filesToLoad = [`./config/${env}.json`, `./config/local.json`]

@@ -10,7 +10,7 @@ export function cloudManagerFromConfig(): CloudManager {
   if (cloudManager === 'aws') {
     return new AwsManager(nameOfServer, nameOfSnapshot, config.get('awsConfig'))
   } else if (cloudManager === 'vultr') {
-    return new VultrManager(nameOfServer, nameOfSnapshot, 'TODO')
+    return new VultrManager(nameOfServer, nameOfSnapshot, config.get('vultrConfig'))
   }
   throw new Error(`could not find a cloud manager for ${cloudManager}`)
 }

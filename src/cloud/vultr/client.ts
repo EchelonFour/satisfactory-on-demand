@@ -1,6 +1,7 @@
-import { ServerDetails, ServerManager, SnapshotDetails } from '../../server'
+import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager'
 import axios, { AxiosInstance } from 'axios'
 import globalLogger from '../../logger'
+import { VultrCloudManagerConfig } from './config'
 
 const logger = globalLogger.child({ module: 'vultr' })
 
@@ -36,16 +37,18 @@ interface VultrInstanceResponse {
 interface VultrInstancesResponse {
   instances: VultrInstanceData[]
 }
-export class VultrManager extends ServerManager<VultrServerDetails, VultrSnapshotDetails> {
+export class VultrManager extends CloudManager<VultrServerDetails, VultrSnapshotDetails> {
   private axios: AxiosInstance
-  constructor(nameOfServer: string, nameOfSnapshot: string, apiKey: string) {
+  private defaultCreateObject: Record<string, unknown>
+  constructor(nameOfServer: string, nameOfSnapshot: string, protected config: VultrCloudManagerConfig) {
     super(nameOfServer, nameOfSnapshot)
     this.axios = axios.create({
       baseURL: 'https://api.vultr.com/v2/',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
       },
     })
+    this.defaultCreateObject = config.extendedJsonOptions ? JSON.parse(config.extendedJsonOptions) : {}
   }
   public async getColdStatus(instanceName: string, snapshotName: string): Promise<[VultrServerDetails, VultrSnapshotDetails]> {
     return Promise.all([this.getServerStatus(instanceName), this.getSnapshotStatus(snapshotName)])
@@ -77,11 +80,16 @@ export class VultrManager extends ServerManager<VultrServerDetails, VultrSnapsho
   }
 
   public async startServerFromSnapshot(snapshot: VultrSnapshotDetails): Promise<VultrServerDetails> {
-    const response = await this.axios.post<VultrInstanceResponse>('instances', {
+    const createRequest = {
+      ...this.defaultCreateObject,
       label: this.nameOfServer,
       snapshot_id: snapshot.snapshotId,
-      // TODO plan and region and other junk
-    })
+      region: this.config.region,
+      plan: this.config.plan,
+      sshkey_id: this.config.sshKey,
+      hostname: this.config.hostname,
+    }
+    const response = await this.axios.post<VultrInstanceResponse>('instances', createRequest)
     return { state: 'running', ipAddress: response.data.instance.main_ip, instanceId: response.data.instance.id }
   }
 
