@@ -1,5 +1,5 @@
-import globalLogger from './logger.js'
-import { wait } from './util.js'
+import globalLogger from '../logger.js'
+import { wait } from '../util.js'
 
 const logger = globalLogger.child({ module: 'sessions' })
 
@@ -12,7 +12,7 @@ export interface SnapshotDetails {
   state: 'missing' | 'pending' | 'complete'
 }
 
-export abstract class ServerManager<
+export abstract class CloudManager<
   TServerDetails extends ServerDetails = ServerDetails,
   TSnapshotDetails extends SnapshotDetails = SnapshotDetails,
 > {

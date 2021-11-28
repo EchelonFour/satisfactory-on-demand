@@ -4,16 +4,16 @@ import globalLogger from './logger.js'
 import './init.js'
 import { EnvoyManager } from './envoy.js'
 import { currentSessionCount$ } from './sessions.js'
-import { ServerManager } from './server.js'
 import { debounceTime, filter, pairwise } from 'rxjs'
+import { cloudManagerFromConfig } from './cloud/cloud-manager-builder.js'
 
 const logger = globalLogger.child({ module: 'main' })
 
 const envoy = new EnvoyManager()
 envoy.start() // will start with localhost
 
-const server = new ServerManager()
-await server.loadCurrentState()
+const cloudManager = cloudManagerFromConfig()
+await cloudManager.loadCurrentState()
 
 const sessions$ = currentSessionCount$()
 
@@ -24,7 +24,7 @@ const shutdownListener = sessions$
   )
   .subscribe(async () => {
     logger.info('reckon no one is logged in anymore')
-    await server.shutdown()
+    await cloudManager.shutdown()
   })
 
 const bootupListener = sessions$
@@ -34,6 +34,6 @@ const bootupListener = sessions$
   )
   .subscribe(async () => {
     logger.info('someone is here, time to boot')
-    const newIp = await server.start()
+    const newIp = await cloudManager.start()
     envoy.setToNewIp(newIp)
   })

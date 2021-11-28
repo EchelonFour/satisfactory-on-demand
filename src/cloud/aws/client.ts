@@ -1,7 +1,8 @@
-import { ServerDetails, ServerManager, SnapshotDetails } from '../../server'
+import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager'
 import globalLogger from '../../logger'
 import { EC2, EC2ClientConfig, Instance } from '@aws-sdk/client-ec2';
 import { wait } from '../../util';
+import { AwsCloudManagerConfig } from './config';
 
 const logger = globalLogger.child({ module: 'aws' })
 
@@ -12,23 +13,21 @@ export interface AwsSnapshotDetails extends SnapshotDetails {
   instanceId: string | null
 }
 
-export class AwsManager extends ServerManager<AwsServerDetails, AwsSnapshotDetails> {
-
-
+export class AwsManager extends CloudManager<AwsServerDetails, AwsSnapshotDetails> {
   private client: EC2
-  constructor(nameOfServer: string, nameOfSnapshot: string, region: string | null = null, accessKeyId: string | null = null, secretAccessKey: string | null = null) {
+  constructor(nameOfServer: string, nameOfSnapshot: string, config: AwsCloudManagerConfig) {
     super(nameOfServer, nameOfSnapshot)
-    const config: EC2ClientConfig = {}
-    if (region) {
-      config.region = region
+    const ec2Config: EC2ClientConfig = {}
+    if (config.region) {
+      ec2Config.region = config.region
     }
-    if (accessKeyId && secretAccessKey) {
-      config.credentials = {
-        accessKeyId,
-        secretAccessKey,
+    if (config.accessKeyId && config.secretAccessKey) {
+      ec2Config.credentials = {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
       }
     }
-    this.client = new EC2(config);
+    this.client = new EC2(ec2Config);
   }
 
   public async getColdStatus(instanceName: string, snapshotName: string): Promise<[AwsServerDetails, AwsSnapshotDetails]> {

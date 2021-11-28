@@ -1,5 +1,10 @@
 import convict from 'convict'
 import { existsSync } from 'fs'
+import { awsConfigOptions } from './cloud/aws/config'
+
+export function configSubSchema<T>(config: convict.Schema<T>): convict.Schema<T> {
+ return config
+}
 
 export const config = convict({
   env: {
@@ -28,7 +33,7 @@ export const config = convict({
   },
   statsReadInterval: {
     doc: 'How many milliseconds we wait between checking active sessions',
-    format: 'int',
+    format: 'nat',
     default: 1000,
     env: 'STATS_READ_INTERVAL',
   },
@@ -50,6 +55,13 @@ export const config = convict({
     default: 'satisfactory',
     env: 'CLOUD_SNAPSHOT_NAME',
   },
+  cloudManager: {
+    doc: 'which cloud manager to use',
+    format: ['aws', 'vultr'],
+    default: 'aws' as 'aws' | 'vultr',
+    env: 'CLOUD_MANAGER',
+  },
+  awsConfig: awsConfigOptions,
 })
 const env = config.get('env')
 const filesToLoad = [`./config/${env}.json`, `./config/local.json`]
