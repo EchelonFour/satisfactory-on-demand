@@ -4,7 +4,7 @@ const logger = globalLogger.child({ module: 'sessions' })
 
 export interface ServerDetails {
   state: 'missing' | 'stopped' | 'running'
-  ipAddress: string
+  ipAddress: string | null
 }
 
 export interface SnapshotDetails {
@@ -34,6 +34,9 @@ export abstract class ServerManager<
     logger.info('starting server')
     this.currentServerDetails = await this.startServerFromSnapshot(this.currentSnapshotDetails)
     this.currentState = 'running'
+    if (this.currentServerDetails.ipAddress == null) {
+      throw new Error('running server has no ip address')
+    }
     return this.currentServerDetails.ipAddress
   }
 
@@ -92,6 +95,6 @@ export abstract class ServerManager<
   public abstract stopServer(server: TServerDetails): Promise<TServerDetails>
   public abstract snapshotServer(server: TServerDetails): Promise<TSnapshotDetails>
   public abstract terminateServer(server: TServerDetails): Promise<TServerDetails>
-  public abstract waitForSnapshotToComplete(snapshot: TSnapshotDetails): Promise<TSnapshotDetails>
+  public abstract updateSnapshotStatus(snapshot: TSnapshotDetails): Promise<TSnapshotDetails>
   public abstract deleteSnapshot(snapshot: TSnapshotDetails): Promise<TSnapshotDetails>
 }
