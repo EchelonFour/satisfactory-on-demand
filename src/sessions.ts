@@ -16,10 +16,10 @@ export function currentSessionCount$(
   return interval(readInterval).pipe(
     switchMap(() =>
       axios.get<EnvoyStatsResponse>(
-        `http://localhost:${envoyPort}/stats?filter=udp.query.downstream_sess_active&format=json`,
+        `http://localhost:${envoyPort}/stats?filter=udp.[a-z]*.downstream_sess_active&format=json`,
       ),
     ),
-    map((response) => response.data.stats[0].value),
+    map((response) => Math.max(...response.data.stats.map((stat) => stat.value))),
     distinctUntilChanged(),
     tap((sessions) => logger.debug({ sessions }, 'current session count')),
     share(),
