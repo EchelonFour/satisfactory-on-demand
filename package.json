@@ -26,6 +26,7 @@
     "@aws-sdk/client-ec2": "^3.42.0",
     "axios": "^0.24.0",
     "convict": "^6.2.1",
+    "dgram-as-promised": "^5.0.1",
     "execa": "^6.0.0",
     "pino": "^7.4.1",
     "rxjs": "^7.4.0"
