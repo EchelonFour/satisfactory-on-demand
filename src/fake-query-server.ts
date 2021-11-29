@@ -3,12 +3,14 @@ import { SocketAsPromised, DgramAsPromised } from 'dgram-as-promised'
 import globalLogger from './logger.js'
 
 const logger = globalLogger.child({ module: 'fake-query' })
-const MAGIC_RESPONSE = Buffer.from('0337a70200983a', 'hex')
+const MAGIC_RESPONSE = Buffer.from('0337a70200', 'hex')
 export class FakeQueryServer {
 
   protected socket: SocketAsPromised | null = null
-  constructor(protected port: number) {
-
+  protected beaconPort: Buffer
+  constructor(protected port: number, beaconPort: number) {
+    this.beaconPort = Buffer.alloc(2)
+    this.beaconPort.writeUInt16LE(beaconPort)
   }
 
   public async start() {
@@ -24,7 +26,7 @@ export class FakeQueryServer {
       throw new Error('tried to respond on a closed socket')
     }
     
-    const response = Buffer.concat([msg, MAGIC_RESPONSE]) // add the magic on the end
+    const response = Buffer.concat([msg, MAGIC_RESPONSE, this.beaconPort]) // add the magic on the end
     response.writeUInt8(msg.readUInt8(0) + 1, 0) //add 1 to the first byte (maybe should be set to 1 🤷‍♀️)
     logger.trace({ request: msg, response }, 'sending back query response')
     try {
