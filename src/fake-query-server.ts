@@ -25,7 +25,7 @@ export class FakeQueryServer {
     }
     
     const response = Buffer.concat([msg, MAGIC_RESPONSE]) // add the magic on the end
-    response.writeUInt8(1, 0) //add 1 to the first byte (maybe should be set to 1 🤷‍♀️)
+    response.writeUInt8(msg.readUInt8(0) + 1, 0) //add 1 to the first byte (maybe should be set to 1 🤷‍♀️)
     logger.trace({ request: msg, response }, 'sending back query response')
     try {
       await this.socket.send(response, rinfo.port, rinfo.address)
