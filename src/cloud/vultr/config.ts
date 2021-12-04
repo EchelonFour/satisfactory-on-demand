@@ -1,14 +1,17 @@
 import type convict from 'convict'
 
 export interface VultrCloudManagerConfig {
-  apiKey: string | null,
-  region: string | null,
-  plan: string | null,
-  sshKey: string | null,
-  hostname: string | null,
+  apiKey: string
+  region: string
+  plan: string
+  sshKey: string
+  hostname: string | null
   extendedJsonOptions: string | null
 }
-export const vultrConfigOptions: convict.Schema<VultrCloudManagerConfig> = {
+export type VultrCloudManagerConfigAsDefined = {
+  [K in keyof VultrCloudManagerConfig]: VultrCloudManagerConfig[K] | null
+}
+export const vultrConfigOptions: convict.Schema<VultrCloudManagerConfigAsDefined> = {
   apiKey: {
     doc: 'vultr api key',
     format: '*',

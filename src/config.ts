@@ -3,10 +3,6 @@ import { existsSync } from 'fs'
 import { awsConfigOptions } from './cloud/aws/config.js'
 import { vultrConfigOptions } from './cloud/vultr/config.js'
 
-export function configSubSchema<T>(config: convict.Schema<T>): convict.Schema<T> {
- return config
-}
-
 export const config = convict({
   env: {
     doc: 'The application environment.',

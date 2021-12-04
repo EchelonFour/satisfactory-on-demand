@@ -48,15 +48,16 @@ export abstract class CloudManager<
     return this.currentServerDetails.ipAddress
   }
 
-  public async shutdown() {
+  public async shutdown(): Promise<void> {
     this.errorIfUninitialised()
     if (this.currentState === 'stopped') {
       logger.warn('tried to double shutdown. just aborting')
       return
-    } 
+    }
     this.currentState = 'snapshotting'
     logger.info('snapshotting')
     await this.rotateSnapshots()
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     //@ts-ignore -- ts thinks it knows, but other threads might change this variable
     if (this.currentState !== 'running') {
       // if we are here, the snapshot did not get cancelled
@@ -64,33 +65,35 @@ export abstract class CloudManager<
       this.currentServerDetails = await this.terminateServer(this.currentServerDetails)
       this.currentState = 'stopped'
     }
-
   }
 
-  protected async rotateSnapshots() {
+  protected async rotateSnapshots(): Promise<void> {
     const oldSnapshot = this.currentSnapshotDetails
     logger.info('snapshot starting')
     let newSnapshot = await this.snapshotServer(this.currentServerDetails)
     const waitDurationMs = 20000
-    const totalWaitCycles = 1000 * 60 * 30 / waitDurationMs // 1000ms * 1 minute * 30 minutes
+    const totalWaitCycles = (1000 * 60 * 30) / waitDurationMs // 1000ms * 1 minute * 30 minutes
     let currentWaitCycles = 0
-    while(newSnapshot.state === 'pending' && currentWaitCycles < totalWaitCycles) {
-      currentWaitCycles++
-      logger.debug({waitCycle: currentWaitCycles}, 'waiting for snapshot to complete')
+    while (newSnapshot.state === 'pending' && currentWaitCycles < totalWaitCycles) {
+      currentWaitCycles += 1
+      logger.debug({ waitCycle: currentWaitCycles }, 'waiting for snapshot to complete')
       await wait(waitDurationMs)
       newSnapshot = await this.updateSnapshotStatus(newSnapshot)
     }
     logger.info(`snapshot took about ${currentWaitCycles * 20} seconds`)
     this.currentSnapshotDetails = newSnapshot
     if (oldSnapshot.state === 'pending' || oldSnapshot.state === 'complete') {
-      logger.info({oldSnapshot}, 'we have a new snapshot, deleting old one')
+      logger.info({ oldSnapshot }, 'we have a new snapshot, deleting old one')
       await this.deleteSnapshot(oldSnapshot)
     }
   }
 
-  public async loadCurrentState() {
-    logger.info('loading state from api');
-    [this.currentServerDetails, this.currentSnapshotDetails] = await this.getColdStatus(this.nameOfServer, this.nameOfSnapshot)
+  public async loadCurrentState(): Promise<void> {
+    logger.info('loading state from api')
+    ;[this.currentServerDetails, this.currentSnapshotDetails] = await this.getColdStatus(
+      this.nameOfServer,
+      this.nameOfSnapshot,
+    )
     if (this.currentServerDetails.state === 'running') {
       if (this.currentSnapshotDetails.state === 'complete' || this.currentSnapshotDetails.state === 'pending') {
         logger.warn('there was a snapshot even though the server is running, deleting')
@@ -101,7 +104,9 @@ export abstract class CloudManager<
       if (this.currentSnapshotDetails.state === 'missing') {
         throw new Error('can not find a server or snapshot, so nothing to boot for the user')
       } else if (this.currentSnapshotDetails.state === 'pending') {
-        throw new Error('snapshot still pending when loading, there should not be a single pending snapshot with no server')
+        throw new Error(
+          'snapshot still pending when loading, there should not be a single pending snapshot with no server',
+        )
       }
       this.currentState = 'stopped'
     } else if (this.currentServerDetails.state === 'stopped') {

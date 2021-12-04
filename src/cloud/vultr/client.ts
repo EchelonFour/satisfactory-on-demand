@@ -1,7 +1,7 @@
-import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager.js'
 import axios, { AxiosInstance } from 'axios'
+import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager.js'
 import globalLogger from '../../logger.js'
-import { VultrCloudManagerConfig } from './config.js'
+import { VultrCloudManagerConfig, VultrCloudManagerConfigAsDefined } from './config.js'
 
 const logger = globalLogger.child({ module: 'vultr' })
 
@@ -14,7 +14,7 @@ export interface VultrSnapshotDetails extends SnapshotDetails {
 
 interface VultrSnapshotData {
   id: string
-  status: 'pending' | 'complete' | 'deleted',
+  status: 'pending' | 'complete' | 'deleted'
   description: string
 }
 interface VultrSnapshotResponse {
@@ -24,11 +24,11 @@ interface VultrSnapshotsResponse {
   snapshots: VultrSnapshotData[]
 }
 interface VultrInstanceData {
-  id: string,
-  main_ip: string,
-  status: 'pending' | 'active',
-  power_status: 'running' | 'stopped',
-  server_status: 'ok' | 'none' | 'installingbooting',
+  id: string
+  main_ip: string
+  status: 'pending' | 'active'
+  power_status: 'running' | 'stopped'
+  server_status: 'ok' | 'none' | 'installingbooting'
   label: string
 }
 interface VultrInstanceResponse {
@@ -39,44 +39,77 @@ interface VultrInstancesResponse {
 }
 export class VultrManager extends CloudManager<VultrServerDetails, VultrSnapshotDetails> {
   private axios: AxiosInstance
+
   private defaultCreateObject: Record<string, unknown>
+
   constructor(nameOfServer: string, nameOfSnapshot: string, protected config: VultrCloudManagerConfig) {
     super(nameOfServer, nameOfSnapshot)
+    VultrManager.validateConfig(config)
     this.axios = axios.create({
       baseURL: 'https://api.vultr.com/v2/',
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
       },
     })
-    this.defaultCreateObject = config.extendedJsonOptions ? JSON.parse(config.extendedJsonOptions) : {}
+    this.defaultCreateObject = config.extendedJsonOptions
+      ? (JSON.parse(config.extendedJsonOptions) as Record<string, unknown>)
+      : {}
   }
-  public async getColdStatus(instanceName: string, snapshotName: string): Promise<[VultrServerDetails, VultrSnapshotDetails]> {
+
+  public static validateConfig(config: VultrCloudManagerConfigAsDefined): VultrCloudManagerConfig {
+    if (!config.apiKey) {
+      throw new Error('vultr needs an api key and none is defined')
+    }
+    if (!config.plan) {
+      throw new Error('vultr needs a plan and none is defined')
+    }
+    if (!config.region) {
+      throw new Error('vultr needs a region and none is defined')
+    }
+    if (!config.sshKey) {
+      throw new Error('vultr needs a ssh and none is defined')
+    }
+    return config as VultrCloudManagerConfig
+  }
+
+  public async getColdStatus(
+    instanceName: string,
+    snapshotName: string,
+  ): Promise<[VultrServerDetails, VultrSnapshotDetails]> {
     return Promise.all([this.getServerStatus(instanceName), this.getSnapshotStatus(snapshotName)])
   }
+
   public async getServerStatus(name: string): Promise<VultrServerDetails> {
     const response = await this.axios.get<VultrInstancesResponse>('instances')
     const validInstances = response.data.instances.filter((instance) => instance.label === name)
     if (validInstances.length === 0) {
       return { state: 'missing', ipAddress: null, instanceId: null }
-    } else if (validInstances.length > 1) {
+    }
+    if (validInstances.length > 1) {
       throw new Error('multiple instances found, impossible to tell which one to use')
     }
     if (validInstances[0].power_status !== 'running') {
-      throw new Error('found a server, but it isn\'t running')
+      throw new Error("found a server, but it isn't running")
     }
     return { state: 'running', instanceId: validInstances[0].id, ipAddress: validInstances[0].main_ip }
   }
 
   public async getSnapshotStatus(name: string): Promise<VultrSnapshotDetails> {
     const response = await this.axios.get<VultrSnapshotsResponse>('snapshots')
-    const validSnapshots = response.data.snapshots.filter((snap) => (snap.status === 'complete' || snap.status === 'pending') && snap.description === name)
+    const validSnapshots = response.data.snapshots.filter(
+      (snap) => (snap.status === 'complete' || snap.status === 'pending') && snap.description === name,
+    )
     if (validSnapshots.length === 0) {
       logger.warn('no snapshot found on load')
-      return { state: 'missing', snapshotId: null}
-    } else if (validSnapshots.length > 1) {
+      return { state: 'missing', snapshotId: null }
+    }
+    if (validSnapshots.length > 1) {
       throw new Error('multiple snapshots found, impossible to tell which one to use')
     }
-    return { state: validSnapshots[0].status as Exclude<VultrSnapshotData['status'], 'deleted'>, snapshotId: validSnapshots[0].id }
+    return {
+      state: validSnapshots[0].status as Exclude<VultrSnapshotData['status'], 'deleted'>,
+      snapshotId: validSnapshots[0].id,
+    }
   }
 
   public async startServerFromSnapshot(snapshot: VultrSnapshotDetails): Promise<VultrServerDetails> {
