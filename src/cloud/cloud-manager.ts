@@ -28,7 +28,6 @@ export interface ServerDetailsStopping {
 }
 export interface ServerDetailsStopped {
   state: 'stopped'
-  ipAddress: null
 }
 export interface ServerDetailsUninitialised {
   state: 'uninitialised'
@@ -69,8 +68,8 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
     if (this.#currentServerDetails.state === 'stopped') {
       this.#currentServerDetails = await this.startServer()
     }
-    if (this.#currentServerDetails.ipAddress == null) {
-      throw new Error('running server has no ip address')
+    if (this.#currentServerDetails.state !== 'running') {
+      throw new Error('could not start the server')
     }
     return this.#currentServerDetails.ipAddress
   }

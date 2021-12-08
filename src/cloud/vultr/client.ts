@@ -96,7 +96,6 @@ export class VultrManager extends CloudManager<VultrServerDetails> {
       return {
         state: 'stopped',
         snapshotId: snapshot.id,
-        ipAddress: null,
       }
     }
     throw new Error('cannot recover vultr from the current state')
@@ -200,7 +199,6 @@ export class VultrManager extends CloudManager<VultrServerDetails> {
       return {
         state: 'stopped',
         snapshotId: this.currentServerDetails.snapshotId,
-        ipAddress: null,
       }
     }
     throw new Error(`snap was made with unknown state "${response.data.snapshot.status}"`)

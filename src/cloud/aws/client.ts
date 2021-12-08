@@ -93,7 +93,6 @@ export class AwsManager extends CloudManager<AwsServerDetails> {
       return {
         state: 'stopped',
         instanceId: managedInstance.InstanceId,
-        ipAddress: null,
       }
     }
     logger.error({ status: status[1] }, 'unexpected status was declared stable')
@@ -186,7 +185,6 @@ export class AwsManager extends CloudManager<AwsServerDetails> {
     return {
       state,
       instanceId: this.currentServerDetails.instanceId,
-      ipAddress: null,
     }
   }
 
