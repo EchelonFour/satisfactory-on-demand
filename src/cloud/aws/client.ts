@@ -1,19 +1,22 @@
-import { EC2, EC2ClientConfig, Instance } from '@aws-sdk/client-ec2'
-import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager.js'
+import { EC2, EC2ClientConfig, Instance, InstanceStateName, SpotInstanceState } from '@aws-sdk/client-ec2'
+import { AbortController } from 'node-abort-controller'
+import { CloudManager, ServerDetails, ServerDetailsStopping } from '../cloud-manager.js'
 import globalLogger from '../../logger.js'
-import { wait } from '../../util.js'
 import { AwsCloudManagerConfig } from './config.js'
 
 const logger = globalLogger.child({ module: 'aws' })
 
-export interface AwsServerDetails extends ServerDetails {
-  instanceId: string | null
+export type AwsServerDetails = ServerDetails & {
+  instanceId: string
 }
-export interface AwsSnapshotDetails extends SnapshotDetails {
-  instanceId: string | null
+interface InstanceStatus {
+  ec2Status: InstanceStateName | null
+  spotStatus: SpotInstanceState | null
+  ipAddress: string | null
+  stableStatus: boolean
 }
 const AWS_ACTION_LOG = 'aws action'
-export class AwsManager extends CloudManager<AwsServerDetails, AwsSnapshotDetails> {
+export class AwsManager extends CloudManager<AwsServerDetails> {
   private client: EC2
 
   constructor(nameOfServer: string, nameOfSnapshot: string, config: AwsCloudManagerConfig) {
@@ -46,10 +49,7 @@ export class AwsManager extends CloudManager<AwsServerDetails, AwsSnapshotDetail
     this.client = new EC2(ec2Config)
   }
 
-  public async getColdStatus(
-    instanceName: string,
-    snapshotName: string,
-  ): Promise<[AwsServerDetails, AwsSnapshotDetails]> {
+  public async getColdStatus(instanceName: string, snapshotName: string): Promise<AwsServerDetails> {
     const existingServers = await this.client.describeInstances({
       Filters: [
         {
@@ -75,62 +75,122 @@ export class AwsManager extends CloudManager<AwsServerDetails, AwsSnapshotDetail
       throw new Error('instance has no id, somehow')
     }
     logger.info(`managing the instance with id: ${managedInstance.InstanceId}`)
-    if (managedInstance.State?.Name === 'running' || managedInstance.State?.Name === 'pending') {
-      return [
-        { state: 'running', instanceId: managedInstance.InstanceId, ipAddress: managedInstance.PublicIpAddress! },
-        { state: 'missing', instanceId: null },
-      ]
-    }
-    return [
-      { state: 'missing', instanceId: null, ipAddress: null },
-      { state: 'complete', instanceId: managedInstance.InstanceId },
-    ]
-  }
-
-  public async startServerFromSnapshot(snapshot: AwsSnapshotDetails): Promise<AwsServerDetails> {
-    logger.info('starting aws instance')
-    const response = await this.client.startInstances({
-      InstanceIds: [snapshot.instanceId!],
+    const status = await this.waitForStatus(async () => {
+      const serverStatus = await this.getServerStatus(this.currentServerDetails.instanceId)
+      return [serverStatus.stableStatus, serverStatus]
     })
-    let knownIp: string | null = null
-    let mostRecentDescribe: Instance
-    while (knownIp === null) {
-      //TODO add a timeout
-      await wait(1500)
-      const describeResponse = await this.client.describeInstances({
-        InstanceIds: [snapshot.instanceId!],
-      })
-      mostRecentDescribe = describeResponse.Reservations?.[0].Instances?.[0]!
-      logger.info(
-        { ip: mostRecentDescribe.PublicIpAddress, state: mostRecentDescribe.State?.Name },
-        'status of started machine',
-      )
-      knownIp = mostRecentDescribe?.PublicIpAddress || null
+    if (status[1]?.ec2Status === 'running') {
+      if (!status[1]?.ipAddress) {
+        throw new Error('no ip on a running computer??')
+      }
+      return {
+        state: 'running',
+        instanceId: managedInstance.InstanceId,
+        ipAddress: status[1].ipAddress,
+      }
     }
-    return { state: 'running', ipAddress: knownIp, instanceId: snapshot.instanceId }
+    if (status[1]?.ec2Status === 'stopped') {
+      return {
+        state: 'stopped',
+        instanceId: managedInstance.InstanceId,
+        ipAddress: null,
+      }
+    }
+    logger.error({ status: status[1] }, 'unexpected status was declared stable')
+    throw new Error('could not recover state of aws instance')
   }
 
-  public snapshotServer(server: AwsServerDetails): Promise<AwsSnapshotDetails> {
-    // this system doesn't snapshot, it just stops and starts. so we just save a marker of the stopped instance for the ID
-    return Promise.resolve({ state: 'complete', instanceId: server.instanceId })
+  public async startServer(): Promise<AwsServerDetails & { state: 'running' }> {
+    logger.info('starting aws instance')
+    if (!this.currentServerDetails.instanceId) {
+      throw new Error('cannot start a server, as no id is known for the stopped server')
+    }
+    await this.client.startInstances({
+      InstanceIds: [this.currentServerDetails.instanceId],
+    })
+    const abortController = new AbortController()
+    const status = await this.waitForStatus(async () => {
+      const serverStatus = await this.getServerStatus(this.currentServerDetails.instanceId)
+      return [serverStatus.stableStatus, serverStatus]
+    }, abortController.signal)
+    if (status[1]?.ipAddress) {
+      return { state: 'running', instanceId: this.currentServerDetails.instanceId, ipAddress: status[1].ipAddress }
+    }
+    logger.warn({ status }, 'failed to wait for server')
+    throw new Error('tried to start server, but failed')
   }
 
-  public async terminateServer(server: AwsServerDetails): Promise<AwsServerDetails> {
+  public async stopServer(): Promise<AwsServerDetails & { state: 'stopping' }> {
     logger.info('stopping aws instance')
+    if (this.currentServerDetails.state !== 'running') {
+      throw new Error("can't stop a server not running")
+    }
     // terminate here means stop
     await this.client.stopInstances({
-      InstanceIds: [server.instanceId!],
+      InstanceIds: [this.currentServerDetails.instanceId],
     })
-    return { state: 'missing', instanceId: null, ipAddress: null }
+    return {
+      state: 'stopping',
+      instanceId: this.currentServerDetails.instanceId,
+      ipAddress: this.currentServerDetails.ipAddress,
+    }
   }
 
-  public updateSnapshotStatus(snapshot: AwsSnapshotDetails): Promise<AwsSnapshotDetails> {
-    // noop because no snapshots are ever pending
-    return Promise.resolve(snapshot)
+  public cancelStoppingServer(): Promise<AwsServerDetails & { state: 'running' }> {
+    throw new Error('Method not implemented.')
   }
 
-  public deleteSnapshot(snapshot: AwsSnapshotDetails): Promise<AwsSnapshotDetails> {
-    // noop
-    return Promise.resolve({ state: 'missing', instanceId: snapshot.instanceId })
+  private async getServerStatus(instanceId: string): Promise<InstanceStatus> {
+    const describeResponse = await this.client.describeInstances({
+      InstanceIds: [instanceId],
+    })
+    const instanceDetails = describeResponse.Reservations?.[0].Instances?.[0] || null
+    if (!instanceDetails) {
+      throw new Error(`could not find the aws instance ${instanceId}`)
+    }
+    const status: InstanceStatus = {
+      ipAddress: instanceDetails.PublicIpAddress || null,
+      ec2Status: (instanceDetails.State?.Name as InstanceStateName | undefined) || null,
+      spotStatus: null,
+      stableStatus: false,
+    }
+    if (instanceDetails.State === 'stopped' && instanceDetails.SpotInstanceRequestId) {
+      const spotResponse = await this.client.describeSpotInstanceRequests({
+        SpotInstanceRequestIds: [instanceDetails.SpotInstanceRequestId],
+      })
+      status.spotStatus = (spotResponse.SpotInstanceRequests?.[0].State as SpotInstanceState | undefined) || null
+    }
+    if (status.ec2Status === 'running' || status.ec2Status === 'terminated') {
+      status.stableStatus = true
+    } else if (status.ec2Status === 'stopped') {
+      status.stableStatus = status.spotStatus === 'open' // TODO
+    } else {
+      status.stableStatus = false
+    }
+    logger.info({ status }, 'status of started machine')
+    return status
+  }
+
+  public async getStatusOfStoppingServer(): Promise<AwsServerDetails & { state: 'stopping' | 'stopped' }> {
+    if (this.currentServerDetails.state === 'running') {
+      throw new Error("can't stopping status of running server")
+    }
+    if (this.currentServerDetails.state !== 'stopping') {
+      return this.currentServerDetails
+    }
+    const status = await this.getServerStatus(this.currentServerDetails.instanceId)
+    const state = status.stableStatus && status.ec2Status === 'stopped' ? 'stopped' : 'stopping'
+    if (state === 'stopping') {
+      return this.currentServerDetails
+    }
+    return {
+      state,
+      instanceId: this.currentServerDetails.instanceId,
+      ipAddress: null,
+    }
+  }
+
+  public finalizeAfterStopping(_stoppingState: AwsServerDetails & { state: 'stopping' }): Promise<void> {
+    return Promise.resolve()
   }
 }

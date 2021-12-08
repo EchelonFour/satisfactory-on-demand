@@ -1,16 +1,23 @@
 import axios, { AxiosInstance } from 'axios'
-import { ServerDetails, CloudManager, SnapshotDetails } from '../cloud-manager.js'
+import { CloudManager, ServerDetailsRunning, ServerDetailsStopped, ServerDetailsStopping } from '../cloud-manager.js'
 import globalLogger from '../../logger.js'
 import { VultrCloudManagerConfig, VultrCloudManagerConfigAsDefined } from './config.js'
 
 const logger = globalLogger.child({ module: 'vultr' })
 
-export interface VultrServerDetails extends ServerDetails {
-  instanceId: string | null
-}
-export interface VultrSnapshotDetails extends SnapshotDetails {
-  snapshotId: string | null
-}
+export type VultrServerDetails =
+  | (ServerDetailsStopped & {
+      snapshotId: string
+    })
+  | (ServerDetailsRunning & {
+      instanceId: string
+      snapshotId: string
+    })
+  | (ServerDetailsStopping & {
+      instanceId: string
+      snapshotId: string
+      oldSnapshotId: string
+    })
 
 interface VultrSnapshotData {
   id: string
@@ -37,7 +44,7 @@ interface VultrInstanceResponse {
 interface VultrInstancesResponse {
   instances: VultrInstanceData[]
 }
-export class VultrManager extends CloudManager<VultrServerDetails, VultrSnapshotDetails> {
+export class VultrManager extends CloudManager<VultrServerDetails> {
   private axios: AxiosInstance
 
   private defaultCreateObject: Record<string, unknown>
@@ -72,18 +79,34 @@ export class VultrManager extends CloudManager<VultrServerDetails, VultrSnapshot
     return config as VultrCloudManagerConfig
   }
 
-  public async getColdStatus(
-    instanceName: string,
-    snapshotName: string,
-  ): Promise<[VultrServerDetails, VultrSnapshotDetails]> {
-    return Promise.all([this.getServerStatus(instanceName), this.getSnapshotStatus(snapshotName)])
+  public async getColdStatus(instanceName: string, snapshotName: string): Promise<VultrServerDetails> {
+    const [server, snapshot] = await Promise.all([
+      this.getServerStatus(instanceName),
+      this.getSnapshotStatus(snapshotName),
+    ])
+    if (server?.power_status === 'running' && snapshot?.status === 'complete') {
+      return {
+        state: 'running',
+        instanceId: server.id,
+        snapshotId: snapshot.id,
+        ipAddress: server.main_ip,
+      }
+    }
+    if (!server && snapshot?.status === 'complete') {
+      return {
+        state: 'stopped',
+        snapshotId: snapshot.id,
+        ipAddress: null,
+      }
+    }
+    throw new Error('cannot recover vultr from the current state')
   }
 
-  public async getServerStatus(name: string): Promise<VultrServerDetails> {
+  public async getServerStatus(name: string): Promise<VultrInstanceData | null> {
     const response = await this.axios.get<VultrInstancesResponse>('instances')
     const validInstances = response.data.instances.filter((instance) => instance.label === name)
     if (validInstances.length === 0) {
-      return { state: 'missing', ipAddress: null, instanceId: null }
+      return null
     }
     if (validInstances.length > 1) {
       throw new Error('multiple instances found, impossible to tell which one to use')
@@ -91,72 +114,100 @@ export class VultrManager extends CloudManager<VultrServerDetails, VultrSnapshot
     if (validInstances[0].power_status !== 'running') {
       throw new Error("found a server, but it isn't running")
     }
-    return { state: 'running', instanceId: validInstances[0].id, ipAddress: validInstances[0].main_ip }
+    return validInstances[0]
   }
 
-  public async getSnapshotStatus(name: string): Promise<VultrSnapshotDetails> {
+  public async getSnapshotStatus(name: string): Promise<VultrSnapshotData | null> {
     const response = await this.axios.get<VultrSnapshotsResponse>('snapshots')
     const validSnapshots = response.data.snapshots.filter(
       (snap) => (snap.status === 'complete' || snap.status === 'pending') && snap.description === name,
     )
     if (validSnapshots.length === 0) {
       logger.warn('no snapshot found on load')
-      return { state: 'missing', snapshotId: null }
+      return null
     }
     if (validSnapshots.length > 1) {
       throw new Error('multiple snapshots found, impossible to tell which one to use')
     }
-    return {
-      state: validSnapshots[0].status as Exclude<VultrSnapshotData['status'], 'deleted'>,
-      snapshotId: validSnapshots[0].id,
-    }
+    return validSnapshots[0]
   }
 
-  public async startServerFromSnapshot(snapshot: VultrSnapshotDetails): Promise<VultrServerDetails> {
+  public async startServer(): Promise<VultrServerDetails & { state: 'running' }> {
+    if (this.currentServerDetails.state !== 'stopped') {
+      throw new Error('cannot start server that is not stopped')
+    }
     const createRequest = {
       ...this.defaultCreateObject,
       label: this.nameOfServer,
-      snapshot_id: snapshot.snapshotId,
+      snapshot_id: this.currentServerDetails.snapshotId,
       region: this.config.region,
       plan: this.config.plan,
       sshkey_id: this.config.sshKey,
       hostname: this.config.hostname,
     }
     const response = await this.axios.post<VultrInstanceResponse>('instances', createRequest)
-    return { state: 'running', ipAddress: response.data.instance.main_ip, instanceId: response.data.instance.id }
+    //TODO wait
+    return {
+      state: 'running',
+      ipAddress: response.data.instance.main_ip,
+      instanceId: response.data.instance.id,
+      snapshotId: this.currentServerDetails.snapshotId,
+    }
   }
 
-  // public async stopServer(server: VultrServerDetails): Promise<VultrServerDetails> {
-  //   await this.axios.post('instances/halt', { instance_ids: [server.instanceId] })
-  //   return { state: 'stopped', instanceId: server.instanceId, ipAddress: server.ipAddress }
-  // }
-
-  public async snapshotServer(server: VultrServerDetails): Promise<VultrSnapshotDetails> {
+  public async stopServer(): Promise<VultrServerDetails & { state: 'stopping' }> {
+    if (this.currentServerDetails.state !== 'running') {
+      throw new Error('cannot stop server not running')
+    }
     const response = await this.axios.post<VultrSnapshotResponse>('snapshots', {
-      instance_id: server.instanceId,
+      instance_id: this.currentServerDetails.instanceId,
       description: this.nameOfSnapshot,
     })
     if (response.data.snapshot.status === 'pending' || response.data.snapshot.status === 'complete') {
-      return { snapshotId: response.data.snapshot.id, state: response.data.snapshot.status }
+      return {
+        state: 'stopping',
+        instanceId: this.currentServerDetails.instanceId,
+        snapshotId: response.data.snapshot.id,
+        ipAddress: this.currentServerDetails.ipAddress,
+        oldSnapshotId: this.currentServerDetails.snapshotId,
+      }
     }
     throw new Error(`snap was made with unknown state "${response.data.snapshot.status}""`)
   }
 
-  public async terminateServer(server: VultrServerDetails): Promise<VultrServerDetails> {
-    await this.axios.delete(`instances/${server.instanceId}`)
-    return { state: 'missing', instanceId: null, ipAddress: null }
-  }
-
-  public async updateSnapshotStatus(snapshot: VultrSnapshotDetails): Promise<VultrSnapshotDetails> {
-    const response = await this.axios.get<VultrSnapshotResponse>(`snapshots/${snapshot.snapshotId}`)
-    if (response.data.snapshot.status === 'pending' || response.data.snapshot.status === 'complete') {
-      return { snapshotId: response.data.snapshot.id, state: response.data.snapshot.status }
+  public async cancelStoppingServer(): Promise<VultrServerDetails & { state: 'running' }> {
+    if (this.currentServerDetails.state !== 'stopping') {
+      throw new Error('cannot cancel stopping if server is not stopping')
     }
-    throw new Error(`snap was made with unknown state "${response.data.snapshot.status}""`)
+    await this.axios.delete(`snapshots/${this.currentServerDetails.snapshotId}`)
+    return {
+      state: 'running',
+      snapshotId: this.currentServerDetails.oldSnapshotId,
+      instanceId: this.currentServerDetails.instanceId,
+      ipAddress: this.currentServerDetails.ipAddress,
+    }
   }
 
-  public async deleteSnapshot(snapshot: VultrSnapshotDetails): Promise<VultrSnapshotDetails> {
-    await this.axios.delete(`snapshots/${snapshot.snapshotId}`)
-    return { state: 'missing', snapshotId: null }
+  public async getStatusOfStoppingServer(): Promise<VultrServerDetails & { state: 'stopped' | 'stopping' }> {
+    if (this.currentServerDetails.state !== 'stopping') {
+      throw new Error('cannot get status of a server not stopping')
+    }
+    const response = await this.axios.get<VultrSnapshotResponse>(`snapshots/${this.currentServerDetails.snapshotId}`)
+    if (response.data.snapshot.status === 'pending') {
+      return this.currentServerDetails
+    }
+    if (response.data.snapshot.status === 'complete') {
+      return {
+        state: 'stopped',
+        snapshotId: this.currentServerDetails.snapshotId,
+        ipAddress: null,
+      }
+    }
+    throw new Error(`snap was made with unknown state "${response.data.snapshot.status}"`)
+  }
+
+  public async finalizeAfterStopping(stoppingState: VultrServerDetails & { state: 'stopping' }): Promise<void> {
+    await this.axios.delete(`instances/${stoppingState.instanceId}`)
+    await this.axios.delete(`snapshots/${stoppingState.oldSnapshotId}`)
   }
 }

@@ -28,6 +28,7 @@
     "convict": "^6.2.1",
     "dgram-as-promised": "^5.0.1",
     "execa": "^6.0.0",
+    "node-abort-controller": "^3.0.1",
     "pino": "^7.4.1",
     "rxjs": "^7.4.0"
   }
