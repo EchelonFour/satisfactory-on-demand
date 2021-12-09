@@ -170,7 +170,7 @@ export class AwsManager extends CloudManager<AwsServerDetails> {
     } else {
       status.stableStatus = false
     }
-    logger.info({ status }, 'status of started machine')
+    logger.info({ status }, 'status of machine')
     return status
   }
 
