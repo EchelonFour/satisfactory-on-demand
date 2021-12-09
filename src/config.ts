@@ -38,7 +38,7 @@ export const config = convict({
     doc: 'How many seconds to wait before actually shutting server down when it hits 0',
     format: 'int',
     default: 180,
-    env: 'STATS_READ_INTERVAL',
+    env: 'SHUTDOWN_DELAY',
   },
   nameOfSatisfactoryServer: {
     doc: 'Name to give the satisfactory server when it boots',
