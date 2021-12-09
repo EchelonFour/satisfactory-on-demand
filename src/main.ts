@@ -11,7 +11,7 @@ import { cloudManagerFromConfig } from './cloud/cloud-manager-builder.js'
 const logger = globalLogger.child({ module: 'main' })
 
 const envoy = new EnvoyManager()
-envoy.start() // will start with localhost
+await envoy.start() // will start with localhost
 
 const cloudManager = cloudManagerFromConfig()
 await cloudManager.loadCurrentState()
