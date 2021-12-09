@@ -1,20 +1,8 @@
-import {
-  catchError,
-  filter,
-  firstValueFrom,
-  fromEvent,
-  interval,
-  map,
-  mapTo,
-  merge,
-  of,
-  switchMap,
-  timeout,
-} from 'rxjs'
+import { filter, firstValueFrom, fromEvent, interval, map, mapTo, merge, mergeMap, of, timeout } from 'rxjs'
 import { AbortController, AbortSignal } from 'node-abort-controller'
 import globalLogger from '../logger.js'
 
-const logger = globalLogger.child({ module: 'sessions' })
+const logger = globalLogger.child({ module: 'cloud' })
 
 export type ServerDetails = ServerDetailsRunning | ServerDetailsStopping | ServerDetailsStopped
 
@@ -93,6 +81,7 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
     }
     this.cancelStoppingController = new AbortController()
     const [status, stoppedStatus] = await this.waitForStatus(async () => {
+      logger.debug('getting status of stopping server')
       const stoppingServerDetails = await this.getStatusOfStoppingServer()
       return [stoppingServerDetails.state === 'stopped', stoppingServerDetails]
     }, this.cancelStoppingController.signal)
@@ -118,7 +107,7 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
   }
 
   protected async waitForStatus<TFinalStatus>(
-    getStatus: () => Promise<[boolean, TFinalStatus | null]>,
+    getStatus: () => Promise<readonly [boolean, TFinalStatus | null]>,
     abort?: AbortSignal,
   ): Promise<readonly [{ aborted: boolean; timedOut: boolean; succeeded: boolean }, TFinalStatus | null]> {
     const retryDelayMs = 3000
@@ -127,11 +116,14 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
       ? fromEvent(abort, 'abort').pipe(mapTo([{ aborted: true, timedOut: false, succeeded: false }, null] as const))
       : of() // uncancellable
     const statusSucceeded = interval(retryDelayMs).pipe(
-      switchMap(() => getStatus()),
-      // eslint-disable-next-line promise/prefer-await-to-callbacks -- this ain't a promise
-      catchError((error) => {
-        logger.error({ error }, 'failed to get the status')
-        return of([false, null] as const)
+      mergeMap(async () => {
+        try {
+          logger.debug('trying to get status')
+          return await getStatus()
+        } catch (error) {
+          logger.error({ error }, 'failed to get the status')
+          return [false, null] as const
+        }
       }),
       filter((complete) => complete[0]),
       map((succeeded) => [{ aborted: false, timedOut: false, succeeded: succeeded[0] }, succeeded[1]] as const),
@@ -143,7 +135,9 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
         },
       }),
     )
-    return firstValueFrom(merge(statusSucceeded, cancelled))
+    const result = await firstValueFrom(merge(statusSucceeded, cancelled))
+    logger.debug({ result }, 'result of waiting for status change')
+    return result
   }
 
   public abstract getColdStatus(instanceName: string, snapshotName: string): Promise<TServerDetails>

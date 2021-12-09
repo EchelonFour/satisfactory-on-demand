@@ -11,7 +11,7 @@ export type AwsServerDetails = ServerDetails & {
 }
 interface InstanceStatus {
   ec2Status: InstanceStateName | null
-  spotStatus: SpotInstanceState | null
+  spotStatus: string | null
   ipAddress: string | null
   stableStatus: boolean
 }
@@ -74,9 +74,10 @@ export class AwsManager extends CloudManager<AwsServerDetails> {
     if (!managedInstance.InstanceId) {
       throw new Error('instance has no id, somehow')
     }
-    logger.info(`managing the instance with id: ${managedInstance.InstanceId}`)
+    const instanceId = managedInstance.InstanceId
+    logger.info(`managing the instance with id: ${instanceId}`)
     const status = await this.waitForStatus(async () => {
-      const serverStatus = await this.getServerStatus(this.currentServerDetails.instanceId)
+      const serverStatus = await this.getServerStatus(instanceId)
       return [serverStatus.stableStatus, serverStatus]
     })
     if (status[1]?.ec2Status === 'running') {
@@ -85,14 +86,14 @@ export class AwsManager extends CloudManager<AwsServerDetails> {
       }
       return {
         state: 'running',
-        instanceId: managedInstance.InstanceId,
+        instanceId,
         ipAddress: status[1].ipAddress,
       }
     }
     if (status[1]?.ec2Status === 'stopped') {
       return {
         state: 'stopped',
-        instanceId: managedInstance.InstanceId,
+        instanceId,
       }
     }
     logger.error({ status: status[1] }, 'unexpected status was declared stable')
@@ -140,6 +141,7 @@ export class AwsManager extends CloudManager<AwsServerDetails> {
   }
 
   private async getServerStatus(instanceId: string): Promise<InstanceStatus> {
+    logger.debug('getting aws server status')
     const describeResponse = await this.client.describeInstances({
       InstanceIds: [instanceId],
     })
@@ -147,22 +149,24 @@ export class AwsManager extends CloudManager<AwsServerDetails> {
     if (!instanceDetails) {
       throw new Error(`could not find the aws instance ${instanceId}`)
     }
+    logger.debug({ instanceDetails }, 'instance details from aws')
     const status: InstanceStatus = {
       ipAddress: instanceDetails.PublicIpAddress || null,
       ec2Status: (instanceDetails.State?.Name as InstanceStateName | undefined) || null,
       spotStatus: null,
       stableStatus: false,
     }
-    if (instanceDetails.State === 'stopped' && instanceDetails.SpotInstanceRequestId) {
+    if (instanceDetails.State?.Name === 'stopped' && instanceDetails.SpotInstanceRequestId != null) {
+      logger.debug('getting details about the spot request')
       const spotResponse = await this.client.describeSpotInstanceRequests({
         SpotInstanceRequestIds: [instanceDetails.SpotInstanceRequestId],
       })
-      status.spotStatus = (spotResponse.SpotInstanceRequests?.[0].State as SpotInstanceState | undefined) || null
+      status.spotStatus = spotResponse.SpotInstanceRequests?.[0].State || null
     }
     if (status.ec2Status === 'running' || status.ec2Status === 'terminated') {
       status.stableStatus = true
     } else if (status.ec2Status === 'stopped') {
-      status.stableStatus = status.spotStatus === 'open' // TODO
+      status.stableStatus = status.spotStatus === 'disabled' // TODO
     } else {
       status.stableStatus = false
     }
