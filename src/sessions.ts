@@ -1,4 +1,4 @@
-import { distinctUntilChanged, interval, map, Observable, share, switchMap, tap } from 'rxjs'
+import { catchError, distinctUntilChanged, from, interval, map, mergeMap, NEVER, Observable, share, tap } from 'rxjs'
 import axios from 'axios'
 import globalLogger from './logger.js'
 import config from './config.js'
@@ -14,9 +14,17 @@ export function currentSessionCount$(
   envoyPort = config.get('envoyAdminPort'),
 ): Observable<number> {
   return interval(readInterval).pipe(
-    switchMap(() =>
-      axios.get<EnvoyStatsResponse>(
-        `http://localhost:${envoyPort}/stats?filter=udp.[a-z]*.downstream_sess_active&format=json`,
+    mergeMap(() =>
+      from(
+        axios.get<EnvoyStatsResponse>(
+          `http://localhost:${envoyPort}/stats?filter=udp.[a-z]*.downstream_sess_active&format=json`,
+        ),
+      ).pipe(
+        // eslint-disable-next-line promise/prefer-await-to-callbacks
+        catchError((error) => {
+          logger.error({ error }, 'failed to get session stats from envoy')
+          return NEVER
+        }),
       ),
     ),
     map((response) => Math.max(...response.data.stats.map((stat) => stat.value))),
