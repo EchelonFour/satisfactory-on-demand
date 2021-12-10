@@ -1,6 +1,6 @@
 import config from '../config.js'
-import { AwsManager } from './aws/client.js'
 import { CloudManager } from './cloud-manager.js'
+import { AwsManager } from './aws/client.js'
 import { VultrManager } from './vultr/client.js'
 
 export function cloudManagerFromConfig(): CloudManager {

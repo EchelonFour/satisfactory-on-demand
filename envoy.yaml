@@ -1,93 +1,93 @@
 static_resources:
   listeners:
-  - name: query
-    reuse_port: true
-    address:
-      socket_address:
-        protocol: UDP
-        address: 0.0.0.0
-        port_value: 15777
-    udp_listener_config:
-      downstream_socket_config:
-        max_rx_datagram_size: 50000
-    listener_filters:
-    - name: envoy.filters.udp_listener.udp_proxy
-      typed_config:
-        '@type': type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
-        stat_prefix: query
-        cluster: query_udp
-  - name: beacon
-    reuse_port: true
-    address:
-      socket_address:
-        protocol: UDP
-        address: 0.0.0.0
-        port_value: 15000
-    udp_listener_config:
-      downstream_socket_config:
-        max_rx_datagram_size: 50000
-    listener_filters:
-    - name: envoy.filters.udp_listener.udp_proxy
-      typed_config:
-        '@type': type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
-        stat_prefix: beacon
-        cluster: beacon_udp
-  - name: game
-    reuse_port: true
-    address:
-      socket_address:
-        protocol: UDP
-        address: 0.0.0.0
-        port_value: 7777
-    udp_listener_config:
-      downstream_socket_config:
-        max_rx_datagram_size: 50000
-    listener_filters:
-    - name: envoy.filters.udp_listener.udp_proxy
-      typed_config:
-        '@type': type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
-        stat_prefix: game
-        cluster: game_udp
+    - name: query
+      reuse_port: true
+      address:
+        socket_address:
+          protocol: UDP
+          address: 0.0.0.0
+          port_value: LISTEN_QUERY_PORT
+      udp_listener_config:
+        downstream_socket_config:
+          max_rx_datagram_size: 50000
+      listener_filters:
+        - name: envoy.filters.udp_listener.udp_proxy
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
+            stat_prefix: query
+            cluster: query_udp
+    - name: beacon
+      reuse_port: true
+      address:
+        socket_address:
+          protocol: UDP
+          address: 0.0.0.0
+          port_value: BEACON_PORT
+      udp_listener_config:
+        downstream_socket_config:
+          max_rx_datagram_size: 50000
+      listener_filters:
+        - name: envoy.filters.udp_listener.udp_proxy
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
+            stat_prefix: beacon
+            cluster: beacon_udp
+    - name: game
+      reuse_port: true
+      address:
+        socket_address:
+          protocol: UDP
+          address: 0.0.0.0
+          port_value: GAME_PORT
+      udp_listener_config:
+        downstream_socket_config:
+          max_rx_datagram_size: 50000
+      listener_filters:
+        - name: envoy.filters.udp_listener.udp_proxy
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
+            stat_prefix: game
+            cluster: game_udp
   clusters:
-  - name: query_udp
-    connect_timeout: 5s
-    type: STATIC
-    load_assignment:
-      cluster_name: query_udp
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address:
-                address: {{IP}}
-                port_value: 15777
-  - name: beacon_udp
-    connect_timeout: 5s
-    type: STATIC
-    load_assignment:
-      cluster_name: beacon_udp
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address:
-                address: {{IP}}
-                port_value: 15000
-  - name: game_udp
-    connect_timeout: 5s
-    type: STATIC
-    load_assignment:
-      cluster_name: game_udp
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address:
-                address: {{IP}}
-                port_value: 7777
+    - name: query_udp
+      connect_timeout: 5s
+      type: STATIC
+      load_assignment:
+        cluster_name: query_udp
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: DESTINATION_IP
+                      port_value: DESTINATION_QUERY_PORT
+    - name: beacon_udp
+      connect_timeout: 5s
+      type: STATIC
+      load_assignment:
+        cluster_name: beacon_udp
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: DESTINATION_IP
+                      port_value: BEACON_PORT
+    - name: game_udp
+      connect_timeout: 5s
+      type: STATIC
+      load_assignment:
+        cluster_name: game_udp
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: DESTINATION_IP
+                      port_value: GAME_PORT
 
 admin:
   address:
     socket_address:
       address: 0.0.0.0
-      port_value: 19000
+      port_value: ADMIN_PORT

@@ -58,6 +58,30 @@ export const config = convict({
     default: 'aws' as 'aws' | 'vultr',
     env: 'CLOUD_MANAGER',
   },
+  fakeQueryPort: {
+    doc: 'fake internal satisfactory query port',
+    format: 'port',
+    default: 15666,
+    env: 'FAKE_QUERY_PORT',
+  },
+  queryPort: {
+    doc: 'satisfactory query port',
+    format: 'port',
+    default: 15777,
+    env: 'QUERY_PORT',
+  },
+  beaconPort: {
+    doc: 'satisfactory beacon port',
+    format: 'port',
+    default: 15000,
+    env: 'BEACON_PORT',
+  },
+  gamePort: {
+    doc: 'satisfactory game port',
+    format: 'port',
+    default: 7777,
+    env: 'GAME_PORT',
+  },
   awsConfig: awsConfigOptions,
   vultrConfig: vultrConfigOptions,
 })

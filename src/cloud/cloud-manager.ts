@@ -1,4 +1,16 @@
-import { filter, firstValueFrom, fromEvent, interval, map, mapTo, merge, mergeMap, of, timeout } from 'rxjs'
+import {
+  filter,
+  firstValueFrom,
+  fromEvent,
+  interval,
+  map,
+  mapTo,
+  merge,
+  mergeMap,
+  of,
+  ReplaySubject,
+  timeout,
+} from 'rxjs'
 import { AbortController, AbortSignal } from 'node-abort-controller'
 import globalLogger from '../logger.js'
 
@@ -17,16 +29,22 @@ export interface ServerDetailsStopping {
 export interface ServerDetailsStopped {
   state: 'stopped'
 }
-export interface ServerDetailsUninitialised {
-  state: 'uninitialised'
-}
 
 export abstract class CloudManager<TServerDetails extends ServerDetails = ServerDetails> {
   #currentServerDetails!: TServerDetails
 
+  #currentState: ReplaySubject<ServerDetails> = new ReplaySubject<ServerDetails>(1)
+
   public get currentServerDetails(): TServerDetails {
     return this.#currentServerDetails
   }
+
+  private set currentServerDetails(value: TServerDetails) {
+    this.#currentServerDetails = value
+    this.#currentState.next(value)
+  }
+
+  public readonly currentServerDetails$ = this.#currentState.asObservable()
 
   private initilised = false
 
@@ -40,42 +58,41 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
     }
   }
 
-  public async start(): Promise<string> {
+  public async start(): Promise<void> {
     this.checkIfUninitialised()
     logger.info('starting server')
-    if (this.#currentServerDetails.state === 'running') {
+    if (this.currentServerDetails.state === 'running') {
       logger.warn('server tried to start, but it was already fine. ignoring')
-      return this.#currentServerDetails.ipAddress
+      return
     }
-    if (this.#currentServerDetails.state === 'stopping') {
+    if (this.currentServerDetails.state === 'stopping') {
       // if the server is still snapshotting, dont start a new one
       this.cancelStoppingController?.abort()
-      this.#currentServerDetails = await this.cancelStoppingServer()
+      this.currentServerDetails = await this.cancelStoppingServer()
       this.cancelStoppingController = null
     }
-    if (this.#currentServerDetails.state === 'stopped') {
-      this.#currentServerDetails = await this.startServer()
+    if (this.currentServerDetails.state === 'stopped') {
+      this.currentServerDetails = await this.startServer()
     }
-    if (this.#currentServerDetails.state !== 'running') {
+    if (this.currentServerDetails.state !== 'running') {
       throw new Error('could not start the server')
     }
-    return this.#currentServerDetails.ipAddress
   }
 
   public async shutdown(): Promise<void> {
     this.checkIfUninitialised()
-    if (this.#currentServerDetails.state === 'stopped' || this.#currentServerDetails.state === 'stopping') {
+    if (this.currentServerDetails.state === 'stopped' || this.currentServerDetails.state === 'stopping') {
       logger.warn('tried to double shutdown. just aborting')
       return
     }
     logger.info('stopping server')
-    this.#currentServerDetails = await this.stopServer()
+    this.currentServerDetails = await this.stopServer()
     await this.trackStoppingServer()
   }
 
   protected async trackStoppingServer(): Promise<void> {
     this.checkIfUninitialised()
-    const stoppingStatus = this.#currentServerDetails as TServerDetails & { state: 'stopping' }
+    const stoppingStatus = this.currentServerDetails as TServerDetails & { state: 'stopping' }
     if (stoppingStatus.state !== 'stopping') {
       throw new Error('cannot track stopping server if it is not stopping')
     }
@@ -88,7 +105,7 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
     //do not handle aborts
     if (status.succeeded && stoppedStatus) {
       await this.finalizeAfterStopping(stoppingStatus)
-      this.#currentServerDetails = stoppedStatus
+      this.currentServerDetails = stoppedStatus
       logger.info('server stopped')
     } else if (status.timedOut) {
       throw new Error('could not stop server. took too long and timed out')
@@ -97,10 +114,10 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
 
   public async loadCurrentState(): Promise<void> {
     logger.info('loading state from api')
-    this.#currentServerDetails = await this.getColdStatus(this.nameOfServer, this.nameOfSnapshot)
-    logger.info(`figured the current server state is ${this.#currentServerDetails.state}`)
+    this.currentServerDetails = await this.getColdStatus(this.nameOfServer, this.nameOfSnapshot)
+    logger.info(`figured the current server state is ${this.currentServerDetails.state}`)
     this.initilised = true
-    if (this.#currentServerDetails.state === 'stopping') {
+    if (this.currentServerDetails.state === 'stopping') {
       logger.info('server found stopping on boot')
       void this.trackStoppingServer() //discard the promise for this on purpose
     }

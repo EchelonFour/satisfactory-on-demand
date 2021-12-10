@@ -1,5 +1,6 @@
 import dgram from 'dgram'
 import { SocketAsPromised, DgramAsPromised } from 'dgram-as-promised'
+import config from './config.js'
 import globalLogger from './logger.js'
 
 const logger = globalLogger.child({ module: 'fake-query' })
@@ -9,7 +10,7 @@ export class FakeQueryServer {
 
   protected beaconPort: Buffer
 
-  constructor(protected port: number, beaconPort: number) {
+  constructor(protected port: number = config.get('fakeQueryPort'), beaconPort: number = config.get('beaconPort')) {
     this.beaconPort = Buffer.alloc(2)
     this.beaconPort.writeUInt16LE(beaconPort)
   }

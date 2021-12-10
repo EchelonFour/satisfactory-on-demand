@@ -2,7 +2,6 @@ import { once } from 'events'
 import { execa, ExecaChildProcess } from 'execa'
 import type { pino } from 'pino'
 import { createInterface } from 'readline'
-import { EnvoyConfigBuilder } from './envoy-config-builder.js'
 import globalLogger from './logger.js'
 
 const logger = globalLogger.child({ module: 'envoy' })
@@ -12,23 +11,18 @@ interface EnvoyLogLine {
   name: string
   msg: string
 }
+
 export class EnvoyManager {
   protected child: ExecaChildProcess | null = null
 
   protected allLivingChildren: ExecaChildProcess[] = []
 
-  protected currentIpAddress = '127.0.0.1'
-
-  protected configBuilder = new EnvoyConfigBuilder()
+  protected currentConfig: string | null = null
 
   protected epoch = 0
 
-  public async setToNewIp(ipAddress: string): Promise<void> {
-    this.currentIpAddress = ipAddress
-    await this.start()
-  }
-
-  public async start(): Promise<void> {
+  public async start(config: string): Promise<void> {
+    this.currentConfig = config
     logger.info({ epoch: this.epoch }, 'starting envoy')
     this.child = execa(
       'envoy',
@@ -38,7 +32,7 @@ export class EnvoyManager {
         '--restart-epoch',
         this.epoch.toString(),
         '--config-yaml',
-        this.configBuilder.getForIp(this.currentIpAddress),
+        this.currentConfig,
       ],
       {
         all: true,
@@ -89,7 +83,11 @@ export class EnvoyManager {
     this.allLivingChildren = []
     this.child = null
     this.epoch = 0
-    await this.start()
+    if (this.currentConfig) {
+      await this.start(this.currentConfig)
+    } else {
+      logger.warn('tried to recover envoy, but it was never sent a config')
+    }
   }
 
   public async stop(childToStop?: ExecaChildProcess | null): Promise<void> {
