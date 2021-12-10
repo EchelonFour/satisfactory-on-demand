@@ -82,6 +82,12 @@ export const config = convict({
     default: 7777,
     env: 'GAME_PORT',
   },
+  fakeQueryVersionResponse: {
+    doc: 'version to pretend to be while fake server is in charge',
+    format: 'nat',
+    default: 69420,
+    env: 'FAKE_VERSION',
+  },
   awsConfig: awsConfigOptions,
   vultrConfig: vultrConfigOptions,
 })

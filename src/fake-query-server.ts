@@ -4,15 +4,23 @@ import config from './config.js'
 import globalLogger from './logger.js'
 
 const logger = globalLogger.child({ module: 'fake-query' })
-const MAGIC_RESPONSE = Buffer.from('0337a70200', 'hex')
+const MAGIC_RESPONSE = Buffer.from('03', 'hex')
 export class FakeQueryServer {
   protected socket: SocketAsPromised | null = null
 
-  protected beaconPort: Buffer
+  protected readonly beaconPort: Buffer
 
-  constructor(protected port: number = config.get('fakeQueryPort'), beaconPort: number = config.get('beaconPort')) {
+  protected readonly version: Buffer
+
+  constructor(
+    protected port: number = config.get('fakeQueryPort'),
+    beaconPort: number = config.get('beaconPort'),
+    version: number = config.get('fakeQueryVersionResponse'),
+  ) {
     this.beaconPort = Buffer.alloc(2)
     this.beaconPort.writeUInt16LE(beaconPort)
+    this.version = Buffer.alloc(4)
+    this.version.writeUInt32LE(version)
   }
 
   public async start(): Promise<void> {
@@ -30,7 +38,7 @@ export class FakeQueryServer {
     if (!this.socket) {
       throw new Error('tried to respond on a closed socket')
     }
-    const response = Buffer.concat([msg, MAGIC_RESPONSE, this.beaconPort]) // add the magic on the end
+    const response = Buffer.concat([msg, MAGIC_RESPONSE, this.version, this.beaconPort]) // add the magic on the end
     response.writeUInt8(msg.readUInt8(0) + 1, 0) //add 1 to the first byte (maybe should be set to 1 🤷‍♀️)
     logger.trace({ request: msg, response }, 'sending back query response')
     try {
