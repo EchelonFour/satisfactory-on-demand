@@ -20,7 +20,6 @@ export function currentSessionCount$(
           `http://localhost:${envoyPort}/stats?filter=udp.[a-z]*.downstream_sess_active&format=json`,
         ),
       ).pipe(
-        // eslint-disable-next-line promise/prefer-await-to-callbacks
         catchError((error) => {
           logger.error({ error }, 'failed to get session stats from envoy')
           return NEVER

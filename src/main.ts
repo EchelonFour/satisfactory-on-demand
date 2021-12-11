@@ -80,7 +80,6 @@ const ipListener = cloudManager.currentServerDetails$
     distinctUntilChanged(),
     mergeMap((currentEnvoyConfig) =>
       from(envoy.start(currentEnvoyConfig)).pipe(
-        // eslint-disable-next-line promise/prefer-await-to-callbacks
         catchError((error) => {
           logger.error({ error }, 'could not change envoy config')
           return NEVER

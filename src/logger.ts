@@ -6,7 +6,6 @@ export const globalLogger = pino({
 })
 
 // use pino.final to create a special logger that guarantees final tick writes
-// eslint-disable-next-line promise/prefer-await-to-callbacks -- final is a hook, not a callback
 const handler = pino.final(globalLogger, (err, finalLogger, evt) => {
   // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
   finalLogger.info(`${evt} caught`)
