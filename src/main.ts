@@ -9,6 +9,7 @@ import {
   NEVER,
   pairwise,
   startWith,
+  tap,
 } from 'rxjs'
 
 import './init.js'
@@ -34,38 +35,40 @@ await fake.start()
 
 const sessions$ = currentSessionCount$()
 
-async function shutdownHandler(): Promise<void> {
-  logger.info('reckon no one is logged in anymore')
-  try {
-    await cloudManager.shutdown()
-  } catch (error) {
-    logger.error({ error }, 'error trying to shut down the server')
-  }
-}
 const shutdownListener = sessions$
   .pipe(
     debounceTime(config.get('shutdownDelay') * 1000),
     filter((sessions) => sessions === 0),
+    tap(() => logger.info('reckon no one is logged in anymore')),
+    mergeMap(() =>
+      from(cloudManager.shutdown()).pipe(
+        catchError((error) => {
+          logger.error({ error }, 'error trying to shut down the server')
+          return NEVER
+        }),
+      ),
+    ),
   )
   .subscribe(() => {
-    void shutdownHandler()
+    logger.info('server shut down')
   })
 
-async function bootupHandler(): Promise<void> {
-  logger.info('someone is here, time to boot')
-  try {
-    await cloudManager.start()
-  } catch (error) {
-    logger.error({ error }, 'error trying to boot up server')
-  }
-}
 const bootupListener = sessions$
   .pipe(
     pairwise(),
     filter(([previousSessions, currentSessions]) => previousSessions === 0 && currentSessions > 0),
+    tap(() => logger.info('someone is here, time to boot')),
+    mergeMap(() =>
+      from(cloudManager.start()).pipe(
+        catchError((error) => {
+          logger.error({ error }, 'error trying to boot up server')
+          return NEVER
+        }),
+      ),
+    ),
   )
   .subscribe(() => {
-    void bootupHandler()
+    logger.info('server booted up')
   })
 
 const ipListener = cloudManager.currentServerDetails$
