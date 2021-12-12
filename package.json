@@ -5,7 +5,7 @@
   "main": "main.ts",
   "type": "module",
   "scripts": {
-    "start": "node --no-warnings --loader ts-node/esm src/main.ts | npm run formatLogs",
+    "start": "node --no-warnings --loader ts-node/esm src/main.ts | npm run --silent formatLogs",
     "build": "tsc",
     "start:prod": "node --enable-source-maps .dist/main.js",
     "formatLogs": "pino-pretty --config=pino-config/pino-pretty.config.js",
