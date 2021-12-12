@@ -51,7 +51,7 @@ export class EnvoyManager {
     if (!childOutput) {
       throw new Error('cannot pipe logs from a child with no stdout')
     }
-    const localLogger = logger.child({ envoyPid, module: 'envoy' })
+    const localLogger = globalLogger.child({ envoyPid, module: 'envoy' })
     const readlineOut = createInterface({
       input: childOutput,
     })
