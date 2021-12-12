@@ -4,7 +4,7 @@ import type { pino } from 'pino'
 import { createInterface } from 'readline'
 import globalLogger from './logger.js'
 
-const logger = globalLogger.child({ module: 'envoy' })
+const logger = globalLogger.child({ module: 'envoy-manager' })
 
 interface EnvoyLogLine {
   lvl: 'trace' | 'debug' | 'info' | 'warning' | 'warn' | 'error' | 'critical'
@@ -51,16 +51,17 @@ export class EnvoyManager {
     if (!childOutput) {
       throw new Error('cannot pipe logs from a child with no stdout')
     }
+    const localLogger = logger.child({ envoyPid, module: 'envoy' })
     const readlineOut = createInterface({
       input: childOutput,
     })
     readlineOut.on('line', (line) => {
       try {
         const { lvl, name, msg } = JSON.parse(line) as EnvoyLogLine
-        const log = getLoggerFromEnvoyLevel(lvl)
-        log({ envoyPid, envoyModule: name }, msg)
+        const log = getLoggerFromEnvoyLevel(localLogger, lvl)
+        log({ envoyModule: name }, msg)
       } catch {
-        logger.warn({ envoyPid }, line)
+        localLogger.warn(line)
       }
     })
     void child.on('exit', (code) => {
@@ -102,21 +103,21 @@ export class EnvoyManager {
   }
 }
 
-function getLoggerFromEnvoyLevel(level: EnvoyLogLine['lvl']): pino.LogFn {
+function getLoggerFromEnvoyLevel(localLogger: pino.Logger, level: EnvoyLogLine['lvl']): pino.LogFn {
   switch (level) {
     case 'critical':
     case 'error':
-      return logger.error.bind(logger)
+      return localLogger.error.bind(localLogger)
     case 'warn':
     case 'warning':
-      return logger.warn.bind(logger)
+      return localLogger.warn.bind(localLogger)
     case 'info':
-      return logger.info.bind(logger)
+      return localLogger.info.bind(localLogger)
     case 'debug':
-      return logger.debug.bind(logger)
+      return localLogger.debug.bind(localLogger)
     case 'trace':
-      return logger.trace.bind(logger)
+      return localLogger.trace.bind(localLogger)
     default:
-      return logger.warn.bind(logger)
+      return localLogger.warn.bind(localLogger)
   }
 }
