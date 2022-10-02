@@ -23,6 +23,7 @@ export class EnvoyManager {
 
   public async start(config: string): Promise<void> {
     this.currentConfig = config
+    logger.trace({ config }, 'full envoy config to launch')
     logger.info({ epoch: this.epoch }, 'starting envoy')
     this.child = execa(
       'envoy',
