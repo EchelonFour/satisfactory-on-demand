@@ -17,7 +17,7 @@ export function currentSessionCount$(
     mergeMap(() =>
       from(
         axios.get<EnvoyStatsResponse>(
-          `http://localhost:${envoyPort}/stats?filter=udp.(game|beacon).downstream_sess_active&format=json`,
+          `http://localhost:${envoyPort}/stats?filter=udp.(game|beacon|query).downstream_sess_active&format=json`,
         ),
       ).pipe(
         catchError((error) => {
