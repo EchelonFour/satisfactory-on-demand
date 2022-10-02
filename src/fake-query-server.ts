@@ -5,6 +5,7 @@ import globalLogger from './logger.js'
 
 const logger = globalLogger.child({ module: 'fake-query' })
 const MAGIC_RESPONSE = Buffer.from('03', 'hex')
+
 export class FakeQueryServer {
   protected socket: SocketAsPromised | null = null
 
@@ -20,7 +21,7 @@ export class FakeQueryServer {
     this.beaconPort = Buffer.alloc(2)
     this.beaconPort.writeUInt16LE(beaconPort)
     this.version = Buffer.alloc(4)
-    this.version.writeUInt32LE(version)
+    this.version.writeInt32LE(version)
   }
 
   public async start(): Promise<void> {
