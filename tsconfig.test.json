@@ -1,8 +1,5 @@
 {
   // extend your base config so you don't have to redefine your compilerOptions
   "extends": "./tsconfig.json",
-  "include": [
-    ".prettierrc.cjs",
-    "pino-config/pino-pretty.config.js"
-  ]
+  "include": [".prettierrc.cjs", "pino-pretty.config.cjs"]
 }
