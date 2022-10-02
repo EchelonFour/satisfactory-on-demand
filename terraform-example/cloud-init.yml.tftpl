@@ -1,0 +1,43 @@
+#cloud-config
+timezone: ${time_zone}
+package_update: true
+package_upgrade: true
+packages:
+  - awscli
+  - ec2-instance-connect
+write_files:
+  - path: /etc/init.d/satisfactory-save-sync
+    owner: root:root
+    permissions: '0770'
+    content: |
+      #!/bin/sh
+      ### BEGIN INIT INFO
+      # Required-Start:    $local_fs docker
+      # Required-Stop:     $local_fs docker
+      # Provides:          satisfactory
+      # Default-Start:     2 3 4 5
+      # Default-Stop:      0 1 6
+      # Description:       Updates and syncs satisfactory
+      ### END INIT INFO
+
+      case "$1" in
+          start)
+                  docker pull wolveix/satisfactory-server:latest
+                  docker run -d --name=satisfactory-server --restart unless-stopped -h satisfactory-server -e MAXPLAYERS=8 -v /opt/satisfactory:/config -p 7777:7777/udp -p 15000:15000/udp -p 15777:15777/udp wolveix/satisfactory-server:latest
+                  docker system prune -a -f
+              ;;
+          stop)
+                  docker stop satisfactory-server
+                  docker rm -f satisfactory-server
+                  aws s3 sync /opt/satisfactory s3://${bucket}/ --exclude 'backups/*' --exclude 'gamefiles/*' --delete
+              ;;
+      esac
+
+      exit 0
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - mkdir -p /opt/satisfactory/saves
+  - aws s3 sync s3://${bucket}/ /opt/satisfactory
+  - chown -R 1000:1000 /opt/satisfactory
+  - systemctl enable satisfactory-save-sync
+  - systemctl start satisfactory-save-sync

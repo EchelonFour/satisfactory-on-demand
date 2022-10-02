@@ -1,7 +1,7 @@
 static_resources:
   listeners:
     - name: query
-      reuse_port: true
+      enable_reuse_port: true
       address:
         socket_address:
           protocol: UDP
@@ -17,7 +17,7 @@ static_resources:
             stat_prefix: query
             cluster: query_udp
     - name: beacon
-      reuse_port: true
+      enable_reuse_port: true
       address:
         socket_address:
           protocol: UDP
@@ -33,7 +33,7 @@ static_resources:
             stat_prefix: beacon
             cluster: beacon_udp
     - name: game
-      reuse_port: true
+      enable_reuse_port: true
       address:
         socket_address:
           protocol: UDP
