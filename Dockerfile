@@ -1,4 +1,4 @@
-FROM envoyproxy/envoy:v1.20.1 as envoy
+FROM envoyproxy/envoy:v1.23.1 as envoy
 FROM node:16.17.1-bullseye as base
 
 WORKDIR /satisfactory
