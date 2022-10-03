@@ -1,6 +1,6 @@
-import { EC2, EC2ClientConfig, Instance, InstanceStateName, SpotInstanceState } from '@aws-sdk/client-ec2'
+import { EC2, EC2ClientConfig, Instance, InstanceStateName } from '@aws-sdk/client-ec2'
 import { AbortController } from 'node-abort-controller'
-import { CloudManager, ServerDetails, ServerDetailsStopping } from '../cloud-manager.js'
+import { CloudManager, ServerDetails } from '../cloud-manager.js'
 import globalLogger from '../../logger.js'
 import { AwsCloudManagerConfig } from './config.js'
 

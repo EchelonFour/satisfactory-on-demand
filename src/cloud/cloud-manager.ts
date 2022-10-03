@@ -128,6 +128,7 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
     abort?: AbortSignal,
   ): Promise<readonly [{ aborted: boolean; timedOut: boolean; succeeded: boolean }, TFinalStatus | null]> {
     const retryDelayMs = 3000
+    // eslint-disable-next-line @typescript-eslint/no-magic-numbers
     const timeoutMs = 1000 * 60 * 20
     const cancelled = abort
       ? fromEvent(abort, 'abort').pipe(mapTo([{ aborted: true, timedOut: false, succeeded: false }, null] as const))

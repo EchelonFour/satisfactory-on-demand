@@ -20,7 +20,7 @@ export function currentSessionCount$(
           `http://localhost:${envoyPort}/stats?filter=udp.(game|beacon|query).downstream_sess_active&format=json`,
         ),
       ).pipe(
-        catchError((error) => {
+        catchError((error: unknown) => {
           logger.error({ error }, 'failed to get session stats from envoy')
           return NEVER
         }),

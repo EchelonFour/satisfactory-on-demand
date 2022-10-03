@@ -20,6 +20,7 @@ export class FakeQueryServer {
   ) {
     this.beaconPort = Buffer.alloc(2)
     this.beaconPort.writeUInt16LE(beaconPort)
+    // eslint-disable-next-line @typescript-eslint/no-magic-numbers
     this.version = Buffer.alloc(4)
     this.version.writeInt32LE(version)
   }

@@ -22,6 +22,8 @@ import { cloudManagerFromConfig } from './cloud/cloud-manager-builder.js'
 import { FakeQueryServer } from './fake-query-server.js'
 import { EnvoyConfigBuilder } from './envoy-config-builder.js'
 
+const MS_IN_SECONDS = 1000
+
 const logger = globalLogger.child({ module: 'main' })
 
 const envoyConfig = new EnvoyConfigBuilder()
@@ -35,14 +37,14 @@ await fake.start()
 
 const sessions$ = currentSessionCount$()
 
-const shutdownListener = sessions$
+sessions$
   .pipe(
-    debounceTime(config.get('shutdownDelay') * 1000),
+    debounceTime(config.get('shutdownDelay') * MS_IN_SECONDS),
     filter((sessions) => sessions === 0),
     tap(() => logger.info('reckon no one is logged in anymore')),
     mergeMap(() =>
       from(cloudManager.shutdown()).pipe(
-        catchError((error) => {
+        catchError((error: unknown) => {
           logger.error({ error }, 'error trying to shut down the server')
           return NEVER
         }),
@@ -53,14 +55,14 @@ const shutdownListener = sessions$
     logger.info('server shut down')
   })
 
-const bootupListener = sessions$
+sessions$
   .pipe(
     pairwise(),
     filter(([previousSessions, currentSessions]) => previousSessions === 0 && currentSessions > 0),
     tap(() => logger.info('someone is here, time to boot')),
     mergeMap(() =>
       from(cloudManager.start()).pipe(
-        catchError((error) => {
+        catchError((error: unknown) => {
           logger.error({ error }, 'error trying to boot up server')
           return NEVER
         }),
@@ -71,7 +73,7 @@ const bootupListener = sessions$
     logger.info('server booted up')
   })
 
-const ipListener = cloudManager.currentServerDetails$
+cloudManager.currentServerDetails$
   .pipe(
     map((server) => {
       if ('ipAddress' in server && server.ipAddress) {
@@ -83,7 +85,7 @@ const ipListener = cloudManager.currentServerDetails$
     distinctUntilChanged(),
     mergeMap((currentEnvoyConfig) =>
       from(envoy.start(currentEnvoyConfig)).pipe(
-        catchError((error) => {
+        catchError((error: unknown) => {
           logger.error({ error }, 'could not change envoy config')
           return NEVER
         }),

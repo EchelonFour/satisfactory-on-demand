@@ -21,7 +21,7 @@ export class EnvoyConfigBuilder {
     return dump(template, {
       indent: 0,
       flowLevel: 0,
-      replacer: (_key, value) => {
+      replacer: (_key, value: unknown) => {
         if (value === 'DESTINATION_IP') {
           return ipAddress
         }
