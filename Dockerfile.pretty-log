@@ -1,4 +1,4 @@
-FROM node:16.13.1-bullseye as base
+FROM node:16.17.1-bullseye as base
 
 WORKDIR /pino
 RUN npm install pino-pretty@latest
