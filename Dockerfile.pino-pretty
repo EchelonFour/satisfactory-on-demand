@@ -6,6 +6,8 @@ RUN npm install pino-pretty@latest
 FROM gcr.io/distroless/nodejs:16
 COPY --from=base /pino /pino
 WORKDIR /pino
+ENV FORCE_COLOR=1
+
 COPY pino-pretty.config.cjs ./
 
 CMD ["node_modules/.bin/pino-pretty"]
