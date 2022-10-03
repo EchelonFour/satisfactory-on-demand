@@ -1,27 +1,35 @@
-name: reviewdog
+name: lint
 on:
   push:
     branches:
       - '**'
   pull_request:
     branches:
-      - 'master'
+      - 'main'
+
 jobs:
   lint:
-    name: runner / lint
+    name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Node
+        uses: actions/setup-node@v3
         with:
-          node-version: '16'
-      - run: npm ci
-      # this is commented out until https://github.com/reviewdog/reviewdog/issues/924 is fixed
-      # - uses: EPMatt/reviewdog-action-tsc@v1
-      #   with:
-      #     reporter: github-check
-      #     level: warning
-      - uses: reviewdog/action-eslint@v1
+          node-version-file: '.node-version'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Check Typescript
+        uses: EPMatt/reviewdog-action-tsc@v1
         with:
-          reporter: github-check
-          level: warning
+          reporter: ${{ github.event_name != 'pull_request' && 'github-check' || 'github-pr-review' }}
+      - name: Check Prettier
+        uses: EPMatt/reviewdog-action-prettier@v1
+        with:
+          reporter: ${{ github.event_name != 'pull_request' && 'github-check' || 'github-pr-review' }}
+      - name: Check ESLint
+        uses: reviewdog/action-eslint@v1
+        with:
+          reporter: ${{ github.event_name != 'pull_request' && 'github-check' || 'github-pr-review' }}
