@@ -3,7 +3,7 @@ FROM node:16.17.1-bullseye as base
 WORKDIR /pino
 RUN npm install pino-pretty@latest
 
-FROM gcr.io/distroless/nodejs:18
+FROM gcr.io/distroless/nodejs:16
 COPY --from=base /pino /pino
 WORKDIR /pino
 COPY pino-pretty.config.cjs ./
