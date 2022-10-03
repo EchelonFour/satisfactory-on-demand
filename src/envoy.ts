@@ -111,11 +111,11 @@ function getLoggerFromEnvoyLevel(localLogger: pino.Logger, level: EnvoyLogLine['
       return localLogger.error.bind(localLogger)
     case 'warn':
     case 'warning':
-      return localLogger.warn.bind(localLogger)
-    case 'info':
       return localLogger.info.bind(localLogger)
-    case 'debug':
+    case 'info':
       return localLogger.debug.bind(localLogger)
+    case 'debug':
+      return localLogger.trace.bind(localLogger)
     case 'trace':
       return localLogger.trace.bind(localLogger)
     default:
