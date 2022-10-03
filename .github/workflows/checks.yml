@@ -29,7 +29,6 @@ jobs:
         uses: EPMatt/reviewdog-action-prettier@v1
         with:
           reporter: ${{ github.event_name != 'pull_request' && 'github-check' || 'github-pr-review' }}
-          prettier_flags: --ignore-path .gitignore .
       - name: Check ESLint
         uses: reviewdog/action-eslint@v1
         with:
