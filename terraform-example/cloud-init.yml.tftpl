@@ -26,7 +26,7 @@ write_files:
               ;;
           stop)
                   docker stop satisfactory-server
-                  aws s3 sync /opt/satisfactory s3://${bucket}/ --exclude 'backups/*' --exclude 'gamefiles/*' --delete --storage-class 
+                  aws s3 sync /opt/satisfactory s3://${bucket}/ --exclude 'backups/*' --exclude 'gamefiles/*' --delete --storage-class STANDARD_IA
                   docker pull wolveix/satisfactory-server:latest | grep "Image is up to date" && pull_status="already_pulled" || pull_status="newly_pulled"
                   if [ "$pull_status" = "newly_pulled" ]; then
                   docker rm -f satisfactory-server
