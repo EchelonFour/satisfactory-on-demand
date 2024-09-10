@@ -43,8 +43,7 @@ services:
   on-demand:
     image: "ghcr.io/echelonfour/satisfactory-on-demand:latest"
     ports:
-      - "15777:15777/udp"
-      - "15000:15000/udp"
+      - "7777:7777/tcp"
       - "7777:7777/udp"
     environment:
       AWS_REGION: REPLACE_ME # name of your aws region
@@ -80,9 +79,8 @@ Use these environment variables to reconfigure the app in the docker container
 | ENVOY_ADMIN_PORT      | Port to use for talking to envoy internally                                       | port                              | 19000        |
 | STATS_READ_INTERVAL   | Milliseconds between checking how many sessions are currently logged in.          | number                            | 1000         |
 | SHUTDOWN_DELAY        | Seconds to wait before shutting down cloud server                                 | number                            | 10 minutes   |
-| FAKE_QUERY_PORT       | Port to host fake query version on internally                                     | port                              | 15666        |
-| QUERY_PORT            | Port to listen and forward to satisfactory                                        | port                              | 15777        |
-| BEACON_PORT           | Port to listen and forward to satisfactory                                        | port                              | 15000        |
+| FAKE_SERVER_PORT      | Port to host fake query version on internally                                     | port                              | 6666         |
+| SERVER_PORT           | Port to listen and forward to satisfactory                                        | port                              | 7777         |
 | GAME_PORT             | Port to listen and forward to satisfactory                                        | port                              | 7777         |
 
 ## How to view logs
