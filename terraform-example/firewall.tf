@@ -14,26 +14,15 @@ resource "aws_security_group_rule" "satisfactory_game" {
   description       = "game"
 }
 
-resource "aws_security_group_rule" "satisfactory_query" {
+resource "aws_security_group_rule" "satisfactory_server" {
   security_group_id = aws_security_group.satisfactory.id
   type              = "ingress"
-  from_port         = 15777
-  to_port           = 15777
-  protocol          = "udp"
+  from_port         = 7777
+  to_port           = 7777
+  protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   ipv6_cidr_blocks  = ["::/0"]
-  description       = "query"
-}
-
-resource "aws_security_group_rule" "satisfactory_beacon" {
-  security_group_id = aws_security_group.satisfactory.id
-  type              = "ingress"
-  from_port         = 15000
-  to_port           = 15000
-  protocol          = "udp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  ipv6_cidr_blocks  = ["::/0"]
-  description       = "beacon"
+  description       = "server"
 }
 
 resource "aws_security_group_rule" "all_udp_out" {

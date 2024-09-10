@@ -16,7 +16,7 @@ data "aws_ami" "ubuntu" {
 
 resource "aws_spot_instance_request" "server" {
   ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3a.xlarge"
+  instance_type = "t3a.large"
 
   iam_instance_profile = aws_iam_instance_profile.server.name
   user_data = templatefile("${path.module}/cloud-init.yml.tftpl", {
