@@ -7,16 +7,15 @@ export class EnvoyConfigBuilder {
 
   constructor(
     protected templateFile: string = config.get('envoyConfigTemplate'),
-    protected queryPort = config.get('queryPort'),
-    protected beaconPort = config.get('beaconPort'),
+    protected serverPort = config.get('serverPort'),
     protected gamePort = config.get('gamePort'),
-    protected fakeQueryPort = config.get('fakeQueryPort'),
+    protected fakeServerPort = config.get('fakeServerPort'),
     protected envoyAdminPort = config.get('envoyAdminPort'),
   ) {
     this.templateContents = readFileSync(templateFile, { encoding: 'utf8' })
   }
 
-  public getForIp(ipAddress: string, destinationQueryPort: number = this.queryPort): string {
+  public getForIp(ipAddress: string, destinationServerPort: number = this.serverPort): string {
     const template = load(this.templateContents)
     return dump(template, {
       indent: 0,
@@ -25,17 +24,11 @@ export class EnvoyConfigBuilder {
         if (value === 'DESTINATION_IP') {
           return ipAddress
         }
-        if (value === 'LISTEN_QUERY_PORT') {
-          return this.queryPort
-        }
-        if (value === 'BEACON_PORT') {
-          return this.beaconPort
-        }
         if (value === 'GAME_PORT') {
           return this.gamePort
         }
-        if (value === 'DESTINATION_QUERY_PORT') {
-          return destinationQueryPort
+        if (value === 'SERVER_PORT') {
+          return destinationServerPort
         }
         if (value === 'ADMIN_PORT') {
           return this.envoyAdminPort
@@ -46,6 +39,6 @@ export class EnvoyConfigBuilder {
   }
 
   public getForLocalFake(ipAddress = '127.0.0.1'): string {
-    return this.getForIp(ipAddress, this.fakeQueryPort)
+    return this.getForIp(ipAddress, this.fakeServerPort)
   }
 }

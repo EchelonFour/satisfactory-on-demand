@@ -14,12 +14,12 @@ export class FakeQueryServer {
   protected readonly version: Buffer
 
   constructor(
-    protected port: number = config.get('fakeQueryPort'),
-    beaconPort: number = config.get('beaconPort'),
+    protected port: number = config.get('fakeServerPort'),
+    gamePort: number = config.get('gamePort'),
     version: number = config.get('fakeQueryVersionResponse'),
   ) {
     this.beaconPort = Buffer.alloc(2)
-    this.beaconPort.writeUInt16LE(beaconPort)
+    this.beaconPort.writeUInt16LE(gamePort)
     // eslint-disable-next-line @typescript-eslint/no-magic-numbers
     this.version = Buffer.alloc(4)
     this.version.writeInt32LE(version)

@@ -34,6 +34,5 @@ COPY --chown=1000:1000 --from=base /satisfactory/.dist ./dist
 COPY --chown=1000:1000 envoy.yaml .
 ENTRYPOINT ["/usr/local/bin/dumb-init", "/nodejs/bin/node", "--enable-source-maps"]
 CMD ["dist/main.js"]
-EXPOSE 15777/udp
-EXPOSE 15000/udp
+EXPOSE 7777/tcp
 EXPOSE 7777/udp

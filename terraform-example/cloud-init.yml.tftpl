@@ -30,7 +30,7 @@ write_files:
                   docker pull wolveix/satisfactory-server:latest | grep "Image is up to date" && pull_status="already_pulled" || pull_status="newly_pulled"
                   if [ "$pull_status" = "newly_pulled" ]; then
                   docker rm -f satisfactory-server
-                  docker create --name=satisfactory-server --restart on-failure:5 -h satisfactory-server -e MAXPLAYERS=8 -v /opt/satisfactory:/config -p 7777:7777/udp -p 15000:15000/udp -p 15777:15777/udp wolveix/satisfactory-server:latest
+                  docker create --name=satisfactory-server --restart on-failure:5 -h satisfactory-server -e MAXPLAYERS=8 -v /opt/satisfactory:/config -p 7777:7777/udp -p 7777:7777/tcp wolveix/satisfactory-server:latest
                   docker image prune -a -f
                   fi
                   docker run --rm --name=satisfactory-server-update -h satisfactory-server -v /opt/satisfactory:/config --entrypoint /bin/bash wolveix/satisfactory-server:latest -c "gosu steam /home/steam/steamcmd/steamcmd.sh +force_install_dir /config/gamefiles +login anonymous +app_update \$STEAMAPPID +quit"
@@ -44,6 +44,6 @@ runcmd:
   - aws s3 sync s3://${bucket}/ /opt/satisfactory
   - chown -R 1000:1000 /opt/satisfactory
   - docker pull wolveix/satisfactory-server:latest
-  - docker create --name=satisfactory-server --restart on-failure:5 -h satisfactory-server -e MAXPLAYERS=8 -v /opt/satisfactory:/config -p 7777:7777/udp -p 15000:15000/udp -p 15777:15777/udp wolveix/satisfactory-server:latest
+  - docker create --name=satisfactory-server --restart on-failure:5 -h satisfactory-server -e MAXPLAYERS=8 -v /opt/satisfactory:/config -p 7777:7777/udp -p 7777:7777/tcp wolveix/satisfactory-server:latest
   - systemctl enable satisfactory-save-sync
   - systemctl start satisfactory-save-sync
