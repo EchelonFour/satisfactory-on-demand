@@ -121,9 +121,8 @@ export class FakeQueryServer {
   }
 
   public async stop(): Promise<void> {
-    const { socketIPv4, socketIPv6 } = this
-    this.socketIPv4 = null
-    this.socketIPv6 = null
-    await Promise.all([socketIPv4?.close(), socketIPv6?.close()])
+    const { socket } = this
+    this.socket = null
+    await socket?.close()
   }
 }
