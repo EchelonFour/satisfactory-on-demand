@@ -44,7 +44,7 @@ export class FakeQueryServer {
       void this.messageHandler(this.socketIPv4, msg, rinfo)
     })
     await this.socketIPv4.bind(this.port)
-    this.socketIPv6 = DgramAsPromised.createSocket('udp6', (msg, rinfo) => {
+    this.socketIPv6 = DgramAsPromised.createSocket({ type: 'udp6', reuseAddr: true }, (msg, rinfo) => {
       if (!this.socketIPv6) {
         return
       }
