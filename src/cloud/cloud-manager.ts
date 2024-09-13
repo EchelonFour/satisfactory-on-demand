@@ -68,7 +68,12 @@ export abstract class CloudManager<TServerDetails extends ServerDetails = Server
     if (this.currentServerDetails.state === 'stopping') {
       // if the server is still snapshotting, dont start a new one
       this.cancelStoppingController?.abort()
-      this.currentServerDetails = await this.cancelStoppingServer()
+      try {
+        this.currentServerDetails = await this.cancelStoppingServer()
+      } catch (error) {
+        logger.warn(error, 'failed to cancel a stopping server. Will wait for it to stop completely and start it again')
+        await this.trackStoppingServer()
+      }
       this.cancelStoppingController = null
     }
     if (this.currentServerDetails.state === 'stopped') {
