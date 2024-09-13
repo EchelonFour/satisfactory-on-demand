@@ -25,13 +25,16 @@ export class EnvoyConfigBuilder {
           return ipAddress
         }
         if (value === 'GAME_PORT') {
-          return destinationPort
+          return this.gamePort
         }
         if (value === 'SERVER_PORT') {
           return this.serverPort
         }
         if (value === 'ADMIN_PORT') {
           return this.envoyAdminPort
+        }
+        if (value === 'DESTINATION_GAME_PORT') {
+          return destinationPort
         }
         return value
       },

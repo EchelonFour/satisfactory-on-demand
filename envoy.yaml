@@ -54,7 +54,7 @@ static_resources:
                   address:
                     socket_address:
                       address: DESTINATION_IP
-                      port_value: GAME_PORT
+                      port_value: DESTINATION_GAME_PORT
 
 admin:
   address:
