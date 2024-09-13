@@ -23,9 +23,7 @@ enum SatisfactoryServerState {
 }
 
 export class FakeQueryServer {
-  protected socketIPv4: SocketAsPromised | null = null
-
-  protected socketIPv6: SocketAsPromised | null = null
+  protected socket: SocketAsPromised | null = null
 
   constructor(
     protected port = config.get('fakeServerPort'),
@@ -33,25 +31,38 @@ export class FakeQueryServer {
     protected fakeName = config.get('fakeServerNameResponse'),
   ) {}
 
+  protected async createSocket(type: dgram.SocketType): Promise<SocketAsPromised | null> {
+    try {
+      const socket = DgramAsPromised.createSocket(type, (msg, rinfo) => {
+        if (!socket) {
+          return
+        }
+        void this.messageHandler(socket, msg, rinfo)
+      })
+      await socket.bind(this.port)
+      return socket
+    } catch (error) {
+      logger.warn({ error }, 'could not listen on socket for fake server')
+    }
+    return null
+  }
+
   public async start(): Promise<void> {
-    if (this.socketIPv4 != null) {
+    if (this.socket != null) {
       await this.stop()
     }
-    this.socketIPv4 = DgramAsPromised.createSocket('udp4', (msg, rinfo) => {
-      if (!this.socketIPv4) {
-        return
-      }
-      void this.messageHandler(this.socketIPv4, msg, rinfo)
-    })
-    await this.socketIPv4.bind(this.port)
-    this.socketIPv6 = DgramAsPromised.createSocket({ type: 'udp6', reuseAddr: true }, (msg, rinfo) => {
-      if (!this.socketIPv6) {
-        return
-      }
-      void this.messageHandler(this.socketIPv6, msg, rinfo)
-    })
-    await this.socketIPv6.bind(this.port)
-    logger.info('now listening for query connections')
+    // v6 also listens on v4
+    this.socket = await this.createSocket('udp6')
+    if (this.socket == null) {
+      // if not v6, then v4
+      this.socket = await this.createSocket('udp4')
+    }
+
+    if (this.socket == null) {
+      logger.error('could not create fake server')
+    } else {
+      logger.info('now listening for query connections')
+    }
   }
 
   protected async messageHandler(socket: SocketAsPromised, msg: Buffer, rinfo: dgram.RemoteInfo): Promise<void> {
