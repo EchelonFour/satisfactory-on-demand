@@ -51,12 +51,8 @@ export class FakeQueryServer {
     if (this.socket != null) {
       await this.stop()
     }
-    // v6 also listens on v4
-    this.socket = await this.createSocket('udp6')
-    if (this.socket == null) {
-      // if not v6, then v4
-      this.socket = await this.createSocket('udp4')
-    }
+
+    this.socket = await this.createSocket('udp4')
 
     if (this.socket == null) {
       logger.error('could not create fake server')
@@ -66,12 +62,13 @@ export class FakeQueryServer {
   }
 
   protected async messageHandler(socket: SocketAsPromised, msg: Buffer, rinfo: dgram.RemoteInfo): Promise<void> {
+    logger.trace({ source: rinfo.address }, 'received udp packet on fake server')
     const cookie = this.parsePollRequest(msg)
     if (cookie == null) {
       return
     }
     const response = this.buildServerStateResponse(cookie)
-    logger.trace({ request: msg, response }, 'sending back query response')
+    logger.trace({ request: msg, response, cookie }, 'sending back query response')
     try {
       await socket.send(response, rinfo.port, rinfo.address)
     } catch (error) {

@@ -36,6 +36,9 @@ export class EnvoyConfigBuilder {
         if (value === 'DESTINATION_GAME_PORT') {
           return destinationPort
         }
+        if (value === 'DESTINATION_SERVER_PORT') {
+          return destinationPort
+        }
         return value
       },
     }).trim()

@@ -42,7 +42,7 @@ static_resources:
                   address:
                     socket_address:
                       address: DESTINATION_IP
-                      port_value: SERVER_PORT
+                      port_value: DESTINATION_SERVER_PORT
     - name: game_udp
       connect_timeout: 5s
       type: STATIC
