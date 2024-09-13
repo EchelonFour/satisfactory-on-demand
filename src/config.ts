@@ -83,6 +83,12 @@ export const config = convict({
     default: 69420,
     env: 'FAKE_VERSION',
   },
+  fakeServerNameResponse: {
+    doc: 'name of server to pretend to have while fake server is in charge',
+    format: '*',
+    default: 'Starting Server',
+    env: 'FAKE_NAME',
+  },
   awsConfig: awsConfigOptions,
   vultrConfig: vultrConfigOptions,
 })

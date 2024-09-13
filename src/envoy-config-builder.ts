@@ -15,7 +15,7 @@ export class EnvoyConfigBuilder {
     this.templateContents = readFileSync(templateFile, { encoding: 'utf8' })
   }
 
-  public getForIp(ipAddress: string, destinationServerPort: number = this.serverPort): string {
+  public getForIp(ipAddress: string, destinationPort: number = this.gamePort): string {
     const template = load(this.templateContents)
     return dump(template, {
       indent: 0,
@@ -25,10 +25,10 @@ export class EnvoyConfigBuilder {
           return ipAddress
         }
         if (value === 'GAME_PORT') {
-          return this.gamePort
+          return destinationPort
         }
         if (value === 'SERVER_PORT') {
-          return destinationServerPort
+          return this.serverPort
         }
         if (value === 'ADMIN_PORT') {
           return this.envoyAdminPort
